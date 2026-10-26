@@ -929,6 +929,7 @@ ID_DEFINE_SCALAR_TRAIT_SETTER(BOOL, AllowsNumberPadPopover, _allowsNumberPadPopo
     [self id_reloadInputViewsForChangedTrait];
 }
 
+#if !TARGET_OS_MACCATALYST
 - (void)setConversationContext:(UIConversationContext *)conversationContext {
     if (_conversationContext == conversationContext) {
         return;
@@ -937,6 +938,8 @@ ID_DEFINE_SCALAR_TRAIT_SETTER(BOOL, AllowsNumberPadPopover, _allowsNumberPadPopo
     [self id_syncTextInputTraits];
     [self id_reloadInputViewsForChangedTrait];
 }
+
+#endif
 
 - (void)id_reconcileDerivedState {
     [self id_reconcileDerivedStateForDocumentChange:nil];

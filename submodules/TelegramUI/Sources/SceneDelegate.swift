@@ -85,6 +85,10 @@ import UIKit
 
     @available(iOS 26.0, *)
     func preferredWindowingControlStyle(for windowScene: UIWindowScene) -> UIWindowScene.WindowingControlStyle {
+        #if targetEnvironment(macCatalyst)
+        return .automatic
+        #else
         return .minimal
+        #endif
     }
 }

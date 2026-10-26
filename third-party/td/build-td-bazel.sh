@@ -26,7 +26,11 @@ cmake -DTD_GENERATE_SOURCE_FILES=ON ../td
 cmake --build . -- -j$(sysctl -n hw.ncpu)
 cd ..
 
-if [ "$ARCH" = "arm64" ]; then
+if [ "${TELEGRAM_CATALYST:-0}" = "1" ] && [ "$ARCH" = "arm64" ]; then
+  IOS_PLATFORMDIR="$(xcode-select -p)/Platforms/MacOSX.platform"
+  IOS_SYSROOT=("$(xcrun --sdk macosx --show-sdk-path)")
+  export CFLAGS="-arch arm64 --target=arm64-apple-ios15.0-macabi -w"
+elif [ "$ARCH" = "arm64" ]; then
   IOS_PLATFORMDIR="$(xcode-select -p)/Platforms/iPhoneOS.platform"
   IOS_SYSROOT=($IOS_PLATFORMDIR/Developer/SDKs/iPhoneOS*.sdk)
   export CFLAGS="-arch arm64 --target=arm64-apple-ios13.0 -miphoneos-version-min=13.0 -w"

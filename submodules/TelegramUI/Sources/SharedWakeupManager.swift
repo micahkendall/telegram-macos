@@ -62,6 +62,21 @@ private struct PendingStoryUploadKey: Hashable {
 }
 
 public final class SharedWakeupManager {
+    #if targetEnvironment(macCatalyst)
+    private var catalystUploadActivity: NSObjectProtocol?
+
+    private func updateCatalystUploadActivity() {
+        let hasPendingUploads = !self.pendingMediaUploadsByKey.isEmpty || !self.pendingStoryUploadStatusesByKey.isEmpty
+        if hasPendingUploads && !self.inForeground {
+            if self.catalystUploadActivity == nil {
+                self.catalystUploadActivity = ProcessInfo.processInfo.beginActivity(options: .userInitiatedAllowingIdleSystemSleep, reason: "Telegram uploads")
+            }
+        } else if let activity = self.catalystUploadActivity {
+            ProcessInfo.processInfo.endActivity(activity)
+            self.catalystUploadActivity = nil
+        }
+    }
+    #endif
     private let beginBackgroundTask: (String, @escaping () -> Void) -> UIBackgroundTaskIdentifier?
     private let endBackgroundTask: (UIBackgroundTaskIdentifier) -> Void
     private let backgroundTimeRemaining: () -> Double
@@ -355,6 +370,11 @@ public final class SharedWakeupManager {
     }
     
     deinit {
+        #if targetEnvironment(macCatalyst)
+        if let activity = self.catalystUploadActivity {
+            ProcessInfo.processInfo.endActivity(activity)
+        }
+        #endif
         self.accountSettingsDisposable?.dispose()
         self.inForegroundDisposable?.dispose()
         self.hasActiveAudioSessionDisposable?.dispose()
@@ -372,6 +392,9 @@ public final class SharedWakeupManager {
     }
     
     private func updateBackgroundProcessingTaskStateFromPendingMediaUploads() {
+        #if targetEnvironment(macCatalyst)
+        self.updateCatalystUploadActivity()
+        #else
         if !self.enableBackgroundTasks {
             return
         }
@@ -410,9 +433,13 @@ public final class SharedWakeupManager {
                 }
             }
         }
+        #endif
     }
     
     private func updateBackgroundProcessingTaskStateFromPendingStoryUploads() {
+        #if targetEnvironment(macCatalyst)
+        self.updateCatalystUploadActivity()
+        #else
         if !self.enableBackgroundTasks {
             return
         }
@@ -451,6 +478,7 @@ public final class SharedWakeupManager {
                 }
             }
         }
+        #endif
     }
     
     private func cancelUploadingMessagesForCurrentTask() {
@@ -519,6 +547,7 @@ public final class SharedWakeupManager {
         }
     }
     
+    #if !targetEnvironment(macCatalyst)
     private func startBackgroundProcessingTaskIfNeeded() {
         guard #available(iOS 26.0, *) else {
             return
@@ -890,6 +919,8 @@ public final class SharedWakeupManager {
         }
     }
     
+    #endif
+
     func allowBackgroundTimeExtension(timeout: Double, extendNow: Bool = false) {
         let shouldCheckTasks = self.allowBackgroundTimeExtensionDeadline == nil
         self.allowBackgroundTimeExtensionDeadline = CFAbsoluteTimeGetCurrent() + timeout
@@ -1134,8 +1165,13 @@ public final class SharedWakeupManager {
     
     private func updateAccounts(hasTasks: Bool, endTaskAfterTransactionsComplete: UIBackgroundTaskIdentifier?) {
         let hasBackgroundLocationTask = self.accountsAndTasks.contains(where: { $0.2.backgroundLocation })
+        #if targetEnvironment(macCatalyst)
+        let hasCatalystUploadActivity = self.catalystUploadActivity != nil
+        #else
+        let hasCatalystUploadActivity = false
+        #endif
         
-        if self.inForeground || self.hasActiveAudioSession || self.isInBackgroundExtension || self.backgroundProcessingTaskId != nil || self.backgroundStoryProcessingTaskId != nil || hasBackgroundLocationTask || (hasTasks && self.currentExternalCompletion != nil) || self.activeExplicitExtensionTimer != nil || self.silenceAudioRenderer != nil {
+        if self.inForeground || self.hasActiveAudioSession || hasCatalystUploadActivity || self.isInBackgroundExtension || self.backgroundProcessingTaskId != nil || self.backgroundStoryProcessingTaskId != nil || hasBackgroundLocationTask || (hasTasks && self.currentExternalCompletion != nil) || self.activeExplicitExtensionTimer != nil || self.silenceAudioRenderer != nil {
             Logger.shared.log("Wakeup", "enableBeginTransactions: true (active)")
             
             for (account, primary, tasks) in self.accountsAndTasks {

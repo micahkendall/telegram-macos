@@ -5,7 +5,12 @@
 //  Created by Jack Flintermann on 12/19/14.
 //
 
+#import <TargetConditionals.h>
+#if TARGET_OS_MACCATALYST
+#import <Contacts/Contacts.h>
+#else
 #import <AddressBook/AddressBook.h>
+#endif
 
 #import "STPAPIClient+ApplePay.h"
 #import "PKPayment+Stripe.h"
@@ -30,6 +35,24 @@ FAUXPAS_IGNORED_IN_FILE(APIAvailability)
         [[[NSString alloc] initWithData:payment.token.paymentData encoding:NSUTF8StringEncoding] stringByAddingPercentEncodingWithAllowedCharacters:set];
     __block NSString *payloadString = [@"pk_token=" stringByAppendingString:paymentString];
 
+#if TARGET_OS_MACCATALYST
+    PKContact *contact = payment.billingContact;
+    NSMutableDictionary *params = [NSMutableDictionary dictionary];
+    if (contact.name != nil) {
+        params[@"name"] = [NSPersonNameComponentsFormatter localizedStringFromPersonNameComponents:contact.name style:NSPersonNameComponentsFormatterStyleDefault options:0];
+    }
+    if (contact.postalAddress != nil) {
+        CNPostalAddress *address = contact.postalAddress;
+        params[@"address_line1"] = address.street;
+        params[@"address_city"] = address.city;
+        params[@"address_state"] = address.state;
+        params[@"address_zip"] = address.postalCode;
+        params[@"address_country"] = address.ISOCountryCode;
+    }
+    [params enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSString *obj, __unused BOOL *stop) {
+        payloadString = [payloadString stringByAppendingFormat:@"&card[%@]=%@", key, [obj stringByAddingPercentEncodingWithAllowedCharacters:set]];
+    }];
+#else
     ABRecordRef billingAddress = payment.billingAddress;
     if (billingAddress) {
         NSMutableDictionary *params = [NSMutableDictionary dictionary];
@@ -73,6 +96,8 @@ FAUXPAS_IGNORED_IN_FILE(APIAvailability)
             CFRelease(addressValues);
         }
     }
+
+#endif
 
     NSString *paymentInstrumentName = payment.token.paymentInstrumentName;
     if (paymentInstrumentName) {

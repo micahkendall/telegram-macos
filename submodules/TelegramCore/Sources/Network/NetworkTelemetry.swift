@@ -45,7 +45,7 @@ public struct NetworkTelemetryConfiguration: Equatable {
     }
 }
 
-#if DEBUG
+#if DEBUG && !targetEnvironment(macCatalyst)
 let networkTelemetryAlwaysRecords = true
 #else
 let networkTelemetryAlwaysRecords = false
@@ -74,7 +74,7 @@ func networkTelemetryShouldRecord(supplementary: Bool, isAppExtension: Bool, con
 
 func networkTelemetrySystemVersion() -> String {
     let version = ProcessInfo.processInfo.operatingSystemVersion
-    #if os(macOS)
+    #if os(macOS) || targetEnvironment(macCatalyst)
     let system = "macos"
     #else
     let system = "ios"

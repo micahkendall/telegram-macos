@@ -1,8 +1,6 @@
 #import <MtProtoKit/MTOutputStream.h>
 
-#if TARGET_OS_IPHONE
-#   import <endian.h>
-#endif
+
 
 static inline int roundUp(int numToRound, int multiple)
 {
@@ -51,9 +49,9 @@ static inline int roundUp(int numToRound, int multiple)
 
 - (void)writeInt32:(int32_t)value
 {
-#if __BYTE_ORDER == __LITTLE_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
     [_wrappedOutputStream write:(const uint8_t *)&value maxLength:4];
-#elif __BYTE_ORDER == __BIG_ENDIAN
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #   error "Big endian is not implemented"
 #else
 #   error "Unknown byte order"
@@ -62,9 +60,9 @@ static inline int roundUp(int numToRound, int multiple)
 
 - (void)writeInt64:(int64_t)value
 {
-#if __BYTE_ORDER == __LITTLE_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
     [_wrappedOutputStream write:(const uint8_t *)&value maxLength:8];
-#elif __BYTE_ORDER == __BIG_ENDIAN
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #   error "Big endian is not implemented"
 #else
 #   error "Unknown byte order"
@@ -73,9 +71,9 @@ static inline int roundUp(int numToRound, int multiple)
 
 - (void)writeDouble:(double)value
 {
-#if __BYTE_ORDER == __LITTLE_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
     [_wrappedOutputStream write:(const uint8_t *)&value maxLength:8];
-#elif __BYTE_ORDER == __BIG_ENDIAN
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #   error "Big endian is not implemented"
 #else
 #   error "Unknown byte order"
@@ -106,9 +104,9 @@ static inline int roundUp(int numToRound, int multiple)
         uint8_t tmp = 254;
         [_wrappedOutputStream write:&tmp maxLength:1];
         
-#if __BYTE_ORDER == __LITTLE_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
         [_wrappedOutputStream write:(const uint8_t *)&length maxLength:3];
-#elif __BYTE_ORDER == __BIG_ENDIAN
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #   error "Big endian is not implemented"
 #else
 #   error "Unknown byte order"
@@ -146,9 +144,9 @@ static inline int roundUp(int numToRound, int multiple)
         uint8_t tmp = 254;
         [_wrappedOutputStream write:&tmp maxLength:1];
         
-#if __BYTE_ORDER == __LITTLE_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
         [_wrappedOutputStream write:(const uint8_t *)&length maxLength:3];
-#elif __BYTE_ORDER == __BIG_ENDIAN
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #   error "Big endian is not implemented"
 #else
 #   error "Unknown byte order"

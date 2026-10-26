@@ -1923,9 +1923,10 @@ ios_application(
         ":UrlTypesInfoPlist",
     ],
     app_icons = [ ":{}_icon".format(name) for name in composer_icon_folders ],
-    alternate_icons = [
-        ":{}".format(name) for name in alternate_icon_folders
-    ],
+    alternate_icons = select({
+        "//build-system:mac_catalyst": [],
+        "//conditions:default": [":{}".format(name) for name in alternate_icon_folders],
+    }),
     resources = [
         ":LaunchScreen",
         #":DefaultAppIcon",

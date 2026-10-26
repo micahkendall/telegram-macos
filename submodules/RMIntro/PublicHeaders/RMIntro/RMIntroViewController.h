@@ -8,7 +8,9 @@
 
 #import <UIKit/UIKit.h>
 
+#ifndef GLES_SILENCE_DEPRECATION
 #define GLES_SILENCE_DEPRECATION
+#endif
 
 #import <GLKit/GLKit.h>
 

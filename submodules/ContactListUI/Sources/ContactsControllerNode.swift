@@ -553,6 +553,11 @@ private final class ContactContextExtractedContentSource: ContextExtractedConten
 }
 
 public func presentContactAccessPicker(context: AccountContext) {
+    #if targetEnvironment(macCatalyst)
+    // macOS manages contact access in System Settings; the iOS picker modifier
+    // is not exposed by ContactsUI on Catalyst.
+    context.sharedContext.applicationBindings.openUrl("x-apple.systempreferences:com.apple.preference.security?Privacy_Contacts")
+    #else
     if #available(iOS 18.0, *), let rootViewController = context.sharedContext.mainWindow?.viewController?.view.window?.rootViewController {
         var dismissImpl: (() -> Void)?
         let pickerView = ContactAccessPickerHostingView(completionHandler: { [weak rootViewController] ids in
@@ -571,8 +576,10 @@ public func presentContactAccessPicker(context: AccountContext) {
             })
         }
     }
+    #endif
 }
 
+#if !targetEnvironment(macCatalyst)
 @available(iOS 18.0, *)
 struct ContactAccessPickerHostingView: View {
     @State var presented = true
@@ -592,3 +599,4 @@ struct ContactAccessPickerHostingView: View {
             }
     }
 }
+#endif

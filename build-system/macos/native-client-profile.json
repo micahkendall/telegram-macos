@@ -1,0 +1,29 @@
+{
+  "reference_repository": "https://github.com/TelegramMessenger/telegram-macos",
+  "reference_commit": "4f356d8a82658a3fdeb18c5c4463dfb99733525d",
+  "shared_core_commit": "fb0e62ba8a147f0821da6aa63c09da7d79a10111",
+  "api_id": "9",
+  "api_hash": "3975f648bb682ee889f35483bc618d1c",
+  "network_bundle_id": "ru.keepcoder.Telegram",
+  "version": "13.1.0",
+  "build": "283357",
+  "channel": "STABLE",
+  "language_category": "macos",
+  "reference_source_build": "278481",
+  "signing_certificate_sha1": "3dd9dd481fd48fdd00951f84ba89e2216944e155",
+  "reference_download": "https://telegram.org/dl/macos",
+  "reference_download_sha256": "39790cfe8594f26d9e0e3bc0ee066fa1fd347dc46a1b7f60c81d5b2a6da47fd6",
+  "reference_calls_commit": "6926af015580a1377e1b1bcad191d076453192cb",
+  "call_versions": [
+    "10.0.0",
+    "11.0.0",
+    "12.0.0",
+    "13.0.0",
+    "2.7.7",
+    "5.0.0",
+    "7.0.0",
+    "8.0.0",
+    "9.0.0"
+  ],
+  "call_max_layer": 92
+}

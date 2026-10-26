@@ -647,7 +647,7 @@ typedef struct MDB_page {
 #define	P_LEAF		 0x02		/**< leaf page */
 #define	P_OVERFLOW	 0x04		/**< overflow page */
 #define	P_META		 0x08		/**< meta page */
-#define	P_DIRTY		 0x10		/**< dirty page, also set for #P_SUBP pages */
+#define	MDB_P_DIRTY		 0x10		/**< dirty page, also set for #P_SUBP pages */
 #define	P_LEAF2		 0x20		/**< for #MDB_DUPFIXED records */
 #define	P_SUBP		 0x40		/**< for #MDB_DUPSORT sub-pages */
 #define	P_KEEP		 0x8000		/**< leave this page alone during spill */
@@ -1300,7 +1300,7 @@ void
 mdb_page_list(MDB_page *mp)
 {
 	pgno_t pgno = mdb_dbg_pgno(mp);
-	const char *type, *state = (mp->mp_flags & P_DIRTY) ? ", dirty" : "";
+	const char *type, *state = (mp->mp_flags & MDB_P_DIRTY) ? ", dirty" : "";
 	MDB_node *node;
 	unsigned int i, nkeys, nsize, total = 0;
 	MDB_val key;
@@ -1528,14 +1528,14 @@ mdb_dlist_free(MDB_txn *txn)
 /** Set or clear P_KEEP in dirty, non-overflow, non-sub pages watched by txn.
  * @param[in] mc A cursor handle for the current operation.
  * @param[in] pflags Flags of the pages to update:
- * P_DIRTY to set P_KEEP, P_DIRTY|P_KEEP to clear it.
+ * MDB_P_DIRTY to set P_KEEP, MDB_P_DIRTY|P_KEEP to clear it.
  * @param[in] all No shortcuts. Needed except after a full #mdb_page_flush().
  * @return 0 on success, non-zero on failure.
  */
 static int
 mdb_pages_xkeep(MDB_cursor *mc, unsigned pflags, int all)
 {
-	enum { Mask = P_SUBP|P_DIRTY|P_KEEP };
+	enum { Mask = P_SUBP|MDB_P_DIRTY|P_KEEP };
 	MDB_txn *txn = mc->mc_txn;
 	MDB_cursor *m3;
 	MDB_xcursor *mx;
@@ -1605,7 +1605,7 @@ static int mdb_page_flush(MDB_txn *txn, int keep);
  *
  * Otherwise, if not using nested txns, it is expected that apps will
  * not run into #MDB_TXN_FULL any more. The pages are flushed to disk
- * the same way as for a txn commit, e.g. their P_DIRTY flag is cleared.
+ * the same way as for a txn commit, e.g. their MDB_P_DIRTY flag is cleared.
  * If the txn never references them again, they can be left alone.
  * If the txn only reads them, they can be used without any fuss.
  * If the txn writes them again, they can be dirtied immediately without
@@ -1668,7 +1668,7 @@ mdb_page_spill(MDB_cursor *m0, MDB_val *key, MDB_val *data)
 	}
 
 	/* Preserve pages which may soon be dirtied again */
-	if ((rc = mdb_pages_xkeep(m0, P_DIRTY, 1)) != MDB_SUCCESS)
+	if ((rc = mdb_pages_xkeep(m0, MDB_P_DIRTY, 1)) != MDB_SUCCESS)
 		goto done;
 
 	/* Less aggressive spill - we originally spilled the entire dirty list,
@@ -1716,7 +1716,7 @@ mdb_page_spill(MDB_cursor *m0, MDB_val *key, MDB_val *data)
 		goto done;
 
 	/* Reset any dirty pages we kept that page_flush didn't see */
-	rc = mdb_pages_xkeep(m0, P_DIRTY|P_KEEP, i);
+	rc = mdb_pages_xkeep(m0, MDB_P_DIRTY|P_KEEP, i);
 
 done:
 	txn->mt_flags |= rc ? MDB_TXN_ERROR : MDB_TXN_SPILLS;
@@ -2009,7 +2009,7 @@ mdb_page_unspill(MDB_txn *txn, MDB_page *mp, MDB_page **ret)
 				 */
 
 			mdb_page_dirty(txn, np);
-			np->mp_flags |= P_DIRTY;
+			np->mp_flags |= MDB_P_DIRTY;
 			*ret = np;
 			break;
 		}
@@ -2030,7 +2030,7 @@ mdb_page_touch(MDB_cursor *mc)
 	pgno_t	pgno;
 	int rc;
 
-	if (!F_ISSET(mp->mp_flags, P_DIRTY)) {
+	if (!F_ISSET(mp->mp_flags, MDB_P_DIRTY)) {
 		if (txn->mt_flags & MDB_TXN_SPILLS) {
 			np = NULL;
 			rc = mdb_page_unspill(txn, mp, &np);
@@ -2087,7 +2087,7 @@ mdb_page_touch(MDB_cursor *mc)
 
 	mdb_page_copy(np, mp, txn->mt_env->me_psize);
 	np->mp_pgno = pgno;
-	np->mp_flags |= P_DIRTY;
+	np->mp_flags |= MDB_P_DIRTY;
 
 done:
 	/* Adjust cursors pointing to mp */
@@ -2828,7 +2828,7 @@ mdb_page_flush(MDB_txn *txn, int keep)
 				dl[++j] = dl[i];
 				continue;
 			}
-			dp->mp_flags &= ~P_DIRTY;
+			dp->mp_flags &= ~MDB_P_DIRTY;
 		}
 		goto done;
 	}
@@ -2845,7 +2845,7 @@ mdb_page_flush(MDB_txn *txn, int keep)
 			}
 			pgno = dl[i].mid;
 			/* clear dirty flag */
-			dp->mp_flags &= ~P_DIRTY;
+			dp->mp_flags &= ~MDB_P_DIRTY;
 			pos = pgno * psize;
 			size = psize;
 			if (IS_OVERFLOW(dp)) size *= dp->mp_pages;
@@ -4993,7 +4993,7 @@ mdb_ovpage_free(MDB_cursor *mc, MDB_page *mp)
 	 */
 	if (env->me_pghead &&
 		!txn->mt_parent &&
-		((mp->mp_flags & P_DIRTY) ||
+		((mp->mp_flags & MDB_P_DIRTY) ||
 		 (sl && (x = mdb_midl_search(sl, pn)) <= sl[0] && sl[x] == pn)))
 	{
 		unsigned i, j;
@@ -5002,7 +5002,7 @@ mdb_ovpage_free(MDB_cursor *mc, MDB_page *mp)
 		rc = mdb_midl_need(&env->me_pghead, ovpages);
 		if (rc)
 			return rc;
-		if (!(mp->mp_flags & P_DIRTY)) {
+		if (!(mp->mp_flags & MDB_P_DIRTY)) {
 			/* This page is no longer spilled */
 			if (x == sl[0])
 				sl[0]--;
@@ -5924,7 +5924,7 @@ mdb_cursor_put(MDB_cursor *mc, MDB_val *key, MDB_val *data,
 			LEAFSIZE(key, data) > env->me_nodemax)
 		{
 			/* Too big for a node, insert in sub-DB */
-			fp_flags = P_LEAF|P_DIRTY;
+			fp_flags = P_LEAF|MDB_P_DIRTY;
 			fp = env->me_pbuf;
 			fp->mp_pad = data->mv_size; /* used if MDB_DUPFIXED */
 			fp->mp_lower = fp->mp_upper = olddata.mv_size = PAGEHDRSZ;
@@ -5989,7 +5989,7 @@ more:
 				dkey.mv_data = memcpy(fp+1, olddata.mv_data, olddata.mv_size);
 
 				/* Make sub-page header for the dup items, with dummy body */
-				fp->mp_flags = P_LEAF|P_DIRTY|P_SUBP;
+				fp->mp_flags = P_LEAF|MDB_P_DIRTY|P_SUBP;
 				fp->mp_lower = PAGEHDRSZ;
 				xdata.mv_size = PAGEHDRSZ + dkey.mv_size + data->mv_size;
 				if (mc->mc_db->md_flags & MDB_DUPFIXED) {
@@ -6023,7 +6023,7 @@ more:
 					}
 					/* FALLTHRU: Big enough MDB_DUPFIXED sub-page */
 				case MDB_CURRENT:
-					fp->mp_flags |= P_DIRTY;
+					fp->mp_flags |= MDB_P_DIRTY;
 					COPY_PGNO(fp->mp_pgno, mp->mp_pgno);
 					mc->mc_xcursor->mx_cursor.mc_pg[0] = fp;
 					flags |= F_DUPDATA;
@@ -6061,7 +6061,7 @@ prep_subDB:
 					dummy.md_root = mp->mp_pgno;
 			}
 			if (mp != fp) {
-				mp->mp_flags = fp_flags | P_DIRTY;
+				mp->mp_flags = fp_flags | MDB_P_DIRTY;
 				mp->mp_pad   = fp->mp_pad;
 				mp->mp_lower = fp->mp_lower;
 				mp->mp_upper = fp->mp_upper + offset;
@@ -6096,7 +6096,7 @@ current:
 
 			/* Is the ov page large enough? */
 			if (ovpages >= dpages) {
-			  if (!(omp->mp_flags & P_DIRTY) &&
+			  if (!(omp->mp_flags & MDB_P_DIRTY) &&
 				  (level || (env->me_flags & MDB_WRITEMAP)))
 			  {
 				rc = mdb_page_unspill(mc->mc_txn, omp, &omp);
@@ -6105,7 +6105,7 @@ current:
 				level = 0;		/* dirty in this txn or clean */
 			  }
 			  /* Is it dirty? */
-			  if (omp->mp_flags & P_DIRTY) {
+			  if (omp->mp_flags & MDB_P_DIRTY) {
 				/* yes, overwrite it. Note in this case we don't
 				 * bother to try shrinking the page if the new data
 				 * is smaller than the overflow threshold.
@@ -6382,7 +6382,7 @@ mdb_page_new(MDB_cursor *mc, uint32_t flags, int num, MDB_page **mp)
 		return rc;
 	DPRINTF(("allocated new mpage %"Z"u, page size %u",
 	    np->mp_pgno, mc->mc_txn->mt_env->me_psize));
-	np->mp_flags = flags | P_DIRTY;
+	np->mp_flags = flags | MDB_P_DIRTY;
 	np->mp_lower = PAGEHDRSZ;
 	np->mp_upper = mc->mc_txn->mt_env->me_psize;
 

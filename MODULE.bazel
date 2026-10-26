@@ -40,6 +40,7 @@ rust.toolchain(
     extra_target_triples = [
         "aarch64-apple-ios",
         "aarch64-apple-ios-sim",
+        "aarch64-apple-ios-macabi",
         "x86_64-apple-ios",
     ],
     # rules_rust 0.74.0 knows archive checksums only up to Rust 1.98.0. Without one, a toolchain download
@@ -48,6 +49,7 @@ rust.toolchain(
     # remote deadline (DEADLINE_EXCEEDED). Update these together with `versions` (each archive's checksum is
     # at static.rust-lang.org/dist/<archive>.sha256), or drop them once known_shas.bzl covers the version.
     sha256s = {
+        "rust-std-1.98.1-aarch64-apple-ios-macabi.tar.xz": "7a50b707a07e8e70192fba19773bb28695e2b6bfafc631a625bed3c5d0c32eb6",
         "cargo-1.98.1-aarch64-apple-darwin.tar.xz": "de51d4fade4f31ad8ec405261cc96bedc000d905f98980027610d6e288dbe21b",
         "cargo-1.98.1-x86_64-apple-darwin.tar.xz": "74b1282253c31fb89926d51d57e47a06c6cd26c93657de72edf622a4ab66396f",
         "clippy-1.98.1-aarch64-apple-darwin.tar.xz": "1ad080040ff0f4f8af0751bd7fa1fb1901212f8d164cecaa3c47b0654e0916f2",
@@ -108,6 +110,7 @@ wallet_engine_crates.from_specs(
         "aarch64-apple-darwin",
         "aarch64-apple-ios",
         "aarch64-apple-ios-sim",
+        "aarch64-apple-ios-macabi",
         "x86_64-apple-darwin",
         "x86_64-apple-ios",
     ],
@@ -172,6 +175,7 @@ mtproto_engine_crates.from_specs(
         "aarch64-apple-darwin",
         "aarch64-apple-ios",
         "aarch64-apple-ios-sim",
+        "aarch64-apple-ios-macabi",
         "x86_64-apple-darwin",
         "x86_64-apple-ios",
     ],
@@ -261,4 +265,13 @@ bazel_dep(name = "build_configuration")
 local_path_override(
     module_name = "build_configuration",
     path = "./build-input/configuration-repository",
+)
+
+# Keep Catalyst's logical iOS platform consistent with apple_support; the compiler
+# still uses the native aarch64-apple-ios-macabi target and MacOSX SDK.
+single_version_override(
+    module_name = "rules_rust",
+    version = "0.74.0",
+    patches = ["//build-system/macos:patches/rules_rust.patch"],
+    patch_strip = 1,
 )

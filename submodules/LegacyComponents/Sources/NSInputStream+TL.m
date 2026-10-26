@@ -2,7 +2,7 @@
 
 #import "LegacyComponentsInternal.h"
 
-#import <endian.h>
+
 
 static inline int roundUpInput(int numToRound, int multiple)
 {
@@ -32,8 +32,8 @@ static inline int roundUpInput(int numToRound, int multiple)
         return 0;
     }
     
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-#elif __BYTE_ORDER == __BIG_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #   error "Big endian is not implemented"
 #else
 #   error "Unknown byte order"
@@ -51,8 +51,8 @@ static inline int roundUpInput(int numToRound, int multiple)
         TGLegacyLog(@"***** Couldn't read int64");
     }
     
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-#elif __BYTE_ORDER == __BIG_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #   error "Big endian is not implemented"
 #else
 #   error "Unknown byte order"
@@ -71,8 +71,8 @@ static inline int roundUpInput(int numToRound, int multiple)
         return 0;
     }
     
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-#elif __BYTE_ORDER == __BIG_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #   error "Big endian is not implemented"
 #else
 #   error "Unknown byte order"
@@ -90,8 +90,8 @@ static inline int roundUpInput(int numToRound, int multiple)
         TGLegacyLog(@"***** Couldn't read double");
     }
     
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-#elif __BYTE_ORDER == __BIG_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #   error "Big endian is not implemented"
 #else
 #   error "Unknown byte order"
@@ -110,8 +110,8 @@ static inline int roundUpInput(int numToRound, int multiple)
         return 0.0;
     }
     
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-#elif __BYTE_ORDER == __BIG_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #   error "Big endian is not implemented"
 #else
 #   error "Unknown byte order"
@@ -186,8 +186,8 @@ static inline int roundUpInput(int numToRound, int multiple)
         [self read:((uint8_t *)&length) + 1 maxLength:3];
         length >>= 8;
         
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-#elif __BYTE_ORDER == __BIG_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #   error "Big endian is not implemented"
 #else
 #   error "Unknown byte order"
@@ -238,8 +238,8 @@ static inline int roundUpInput(int numToRound, int multiple)
         [self read:((uint8_t *)&length) + 1 maxLength:3];
         length >>= 8;
         
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-#elif __BYTE_ORDER == __BIG_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #   error "Big endian is not implemented"
 #else
 #   error "Unknown byte order"
@@ -292,8 +292,8 @@ static inline int roundUpInput(int numToRound, int multiple)
         [self read:((uint8_t *)&length) + 1 maxLength:3];
         length >>= 8;
         
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-#elif __BYTE_ORDER == __BIG_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #   error "Big endian is not implemented"
 #else
 #   error "Unknown byte order"
@@ -335,8 +335,8 @@ static inline int roundUpInput(int numToRound, int multiple)
         [self read:((uint8_t *)&length) + 1 maxLength:3];
         length >>= 8;
         
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-#elif __BYTE_ORDER == __BIG_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #   error "Big endian is not implemented"
 #else
 #   error "Unknown byte order"

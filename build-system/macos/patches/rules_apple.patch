@@ -1,0 +1,116 @@
+diff --git a/apple/internal/ios_rules.bzl b/apple/internal/ios_rules.bzl
+index 7d2f703..6fefb75 100644
+--- a/apple/internal/ios_rules.bzl
++++ b/apple/internal/ios_rules.bzl
+@@ -449,7 +449,7 @@ def _ios_application_impl(ctx):
+         ),
+     )
+ 
+-    if platform_prerequisites.platform.is_device:
++    if platform_prerequisites.platform.is_device and not platform_prerequisites.is_catalyst:
+         processor_partials.append(
+             partials.provisioning_profile_partial(
+                 actions = actions,
+@@ -485,7 +485,7 @@ def _ios_application_impl(ctx):
+         label_name = label.name,
+     )
+ 
+-    if platform_prerequisites.platform.is_device:
++    if platform_prerequisites.platform.is_device and not platform_prerequisites.is_catalyst:
+         run_support.register_device_executable(
+             actions = actions,
+             bundle_extension = bundle_extension,
+@@ -792,7 +792,7 @@ def _ios_app_clip_impl(ctx):
+         ),
+     ]
+ 
+-    if platform_prerequisites.platform.is_device:
++    if platform_prerequisites.platform.is_device and not platform_prerequisites.is_catalyst:
+         processor_partials.append(
+             partials.provisioning_profile_partial(
+                 actions = actions,
+@@ -828,7 +828,7 @@ def _ios_app_clip_impl(ctx):
+         label_name = label.name,
+     )
+ 
+-    if platform_prerequisites.platform.is_device:
++    if platform_prerequisites.platform.is_device and not platform_prerequisites.is_catalyst:
+         run_support.register_device_executable(
+             actions = actions,
+             bundle_extension = bundle_extension,
+@@ -1430,7 +1430,7 @@ def _ios_extension_impl(ctx):
+         ),
+     ]
+ 
+-    if platform_prerequisites.platform.is_device:
++    if platform_prerequisites.platform.is_device and not platform_prerequisites.is_catalyst:
+         processor_partials.append(
+             partials.provisioning_profile_partial(
+                 actions = actions,
+@@ -2101,7 +2101,7 @@ def _ios_imessage_application_impl(ctx):
+         ),
+     ]
+ 
+-    if platform_prerequisites.platform.is_device:
++    if platform_prerequisites.platform.is_device and not platform_prerequisites.is_catalyst:
+         processor_partials.append(
+             partials.provisioning_profile_partial(
+                 actions = actions,
+@@ -2364,7 +2364,7 @@ def _ios_imessage_extension_impl(ctx):
+         ),
+     ]
+ 
+-    if platform_prerequisites.platform.is_device:
++    if platform_prerequisites.platform.is_device and not platform_prerequisites.is_catalyst:
+         processor_partials.append(
+             partials.provisioning_profile_partial(
+                 actions = actions,
+@@ -2571,7 +2571,7 @@ def _ios_sticker_pack_extension_impl(ctx):
+         ),
+     ]
+ 
+-    if platform_prerequisites.platform.is_device:
++    if platform_prerequisites.platform.is_device and not platform_prerequisites.is_catalyst:
+         processor_partials.append(
+             partials.provisioning_profile_partial(
+                 actions = actions,
+diff --git a/apple/internal/platform_support.bzl b/apple/internal/platform_support.bzl
+index 1dc3efe..bb48d51 100644
+--- a/apple/internal/platform_support.bzl
++++ b/apple/internal/platform_support.bzl
+@@ -75,6 +75,8 @@ def _ui_device_family_plist_value(*, platform_prerequisites):
+ 
+ def _apple_common_platform_from_platform_info(*, apple_platform_info):
+     """Returns an apple_common.platform given the contents of an ApplePlatformInfo provider"""
++    if apple_platform_info.target_os == "ios" and apple_platform_info.target_environment == "catalyst":
++        return apple_common.platform.macos
+     if apple_platform_info.target_os == "ios":
+         if apple_platform_info.target_environment == "device":
+             return apple_common.platform.ios_device
+@@ -178,6 +180,7 @@ def _platform_prerequisites(
+         objc_fragment = objc_fragment,
+         platform = platform,
+         platform_type = platform_type_attr,
++        is_catalyst = apple_platform_info.target_environment == "catalyst",
+         sdk_version = sdk_version,
+         uses_swift = uses_swift,
+         xcode_version_config = xcode_version_config,
+diff --git a/apple/internal/resource_actions/actool.bzl b/apple/internal/resource_actions/actool.bzl
+index ecdbd1e..83dede9 100644
+--- a/apple/internal/resource_actions/actool.bzl
++++ b/apple/internal/resource_actions/actool.bzl
+@@ -588,10 +588,13 @@ def compile_asset_catalog(
+     args.add_all(
+         collections.before_each(
+             "--target-device",
+-            platform_prerequisites.device_families,
++            ["mac"] if platform_prerequisites.is_catalyst else platform_prerequisites.device_families,
+         ),
+     )
+ 
++    if platform_prerequisites.is_catalyst:
++        args.add_all(["--ui-framework-family", "uikit"])
++
+     alticons_outputs = []
+     actool_output_plist = None
+     outputs = [output_dir]

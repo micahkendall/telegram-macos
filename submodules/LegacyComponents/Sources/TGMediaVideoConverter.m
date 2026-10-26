@@ -404,7 +404,11 @@
             editor.standalone = true;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#if TARGET_OS_MACCATALYST
+            ciContext = [CIContext contextWithOptions:nil];
+#else
             ciContext = [CIContext contextWithEAGLContext:[[GPUImageContext sharedImageProcessingContext] context]];
+#endif
 #pragma clang diagnostic pop
         }
         

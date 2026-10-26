@@ -576,7 +576,9 @@ bail:
         (id)kCVPixelBufferPixelFormatTypeKey : @(pixelFormat),
         (id)kCVPixelBufferWidthKey : @(width),
         (id)kCVPixelBufferHeightKey : @(height),
+#if !TARGET_OS_MACCATALYST
         (id)kCVPixelFormatOpenGLESCompatibility : @true,
+#endif
         (id)kCVPixelBufferIOSurfacePropertiesKey : @{ }
     };
 	

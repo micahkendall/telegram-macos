@@ -2037,7 +2037,7 @@ public func debugController(sharedContext: SharedAccountContext, context: Accoun
     })
     
     let appGroupName = "group.\(Bundle.main.bundleIdentifier!)"
-    let maybeAppGroupUrl = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupName)
+    let maybeAppGroupUrl = getAppGroupContainerURL(appGroupName)
     
     var hasLegacyAppData = false
     if let appGroupUrl = maybeAppGroupUrl {

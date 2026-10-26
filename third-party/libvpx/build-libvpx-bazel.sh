@@ -81,6 +81,11 @@ build_target() {
 
   mkdir "${target}"
   cd "${target}"
+  if [ "${TELEGRAM_CATALYST:-0}" = "1" ]; then
+    export CFLAGS="${CFLAGS:-} --target=arm64-apple-ios15.0-macabi"
+    export CXXFLAGS="${CXXFLAGS:-} --target=arm64-apple-ios15.0-macabi"
+    export LDFLAGS="${LDFLAGS:-} --target=arm64-apple-ios15.0-macabi"
+  fi
   eval "${LIBVPX_SOURCE_DIR}/configure" --target="${target}" \
     ${CONFIGURE_ARGS} ${EXTRA_CONFIGURE_ARGS} ${target_specific_flags} \
 

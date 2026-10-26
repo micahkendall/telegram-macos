@@ -2,7 +2,7 @@ import Foundation
 import SwiftSignalKit
 import MtProtoKit
 import Reachability
-#if os(iOS)
+#if os(iOS) && !targetEnvironment(macCatalyst)
 import CoreTelephony
 #endif
 
@@ -15,6 +15,7 @@ public enum CellularNetworkType {
     case lte
 }
 
+#if !targetEnvironment(macCatalyst)
 extension CellularNetworkType {
     init(accessTechnology: String) {
         switch accessTechnology {
@@ -31,6 +32,7 @@ extension CellularNetworkType {
         }
     }
 }
+#endif
 
 #endif
 
@@ -43,7 +45,7 @@ public enum NetworkType: Equatable {
 }
 
 extension NetworkType {
-#if os(iOS)
+#if os(iOS) && !targetEnvironment(macCatalyst)
     init(internalType: Reachability.NetworkType, cellularType: CellularNetworkType) {
         switch internalType {
             case .none:
@@ -72,7 +74,7 @@ private final class NetworkTypeManagerImpl {
     var networkTypeDisposable: Disposable?
     var currentNetworkType: Reachability.NetworkType?
     var networkType: NetworkType?
-    #if os(iOS)
+    #if os(iOS) && !targetEnvironment(macCatalyst)
     var currentCellularType: CellularNetworkType
     var cellularTypeObserver: NSObjectProtocol?
     #endif
@@ -81,7 +83,7 @@ private final class NetworkTypeManagerImpl {
         self.queue = queue
         self.updated = updated
         
-        #if os(iOS)
+        #if os(iOS) && !targetEnvironment(macCatalyst)
         let accessTechnology = CTTelephonyNetworkInfo().serviceCurrentRadioAccessTechnology?.values.first ?? ""
         self.currentCellularType = CellularNetworkType(accessTechnology: accessTechnology)
         self.cellularTypeObserver = NotificationCenter.default.addObserver(forName: NSNotification.Name.CTServiceRadioAccessTechnologyDidChange, object: nil, queue: nil, using: { [weak self] notification in
@@ -119,7 +121,7 @@ private final class NetworkTypeManagerImpl {
                 strongSelf.currentNetworkType = networkStatus
                 
                 let networkType: NetworkType
-                #if os(iOS)
+                #if os(iOS) && !targetEnvironment(macCatalyst)
                 networkType = NetworkType(internalType: networkStatus, cellularType: strongSelf.currentCellularType)
                 #else
                 networkType = NetworkType(internalType:  networkStatus)
@@ -134,7 +136,7 @@ private final class NetworkTypeManagerImpl {
     
     func stop() {
         self.networkTypeDisposable?.dispose()
-        #if os(iOS)
+        #if os(iOS) && !targetEnvironment(macCatalyst)
         if let observer = self.cellularTypeObserver {
             NotificationCenter.default.removeObserver(observer, name: NSNotification.Name.CTServiceRadioAccessTechnologyDidChange, object: nil)
         }

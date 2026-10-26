@@ -3,6 +3,9 @@
 set -e
 
 ARCH="$1"
+if [ "${TELEGRAM_CATALYST:-0}" = "1" ] && [ "$ARCH" = "arm64" ]; then
+    ARCH="macos_arm64"
+fi
 
 BUILD_DIR="$2"
 
@@ -51,6 +54,9 @@ cpu_family = 'aarch64'
 cpu = 'arm64'
 endian = 'little'
 MESONEOF
+    if [ "${TELEGRAM_CATALYST:-0}" = "1" ]; then
+        sed -i '' 's/-mmacosx-version-min=14.0/--target=arm64-apple-ios15.0-macabi/g' "$TARGET_CROSSFILE"
+    fi
     CROSSFILE="../package/crossfiles/arm64-MacOSX-custom.meson"
 elif [ "$ARCH" = "linux_arm64" ] || [ "$ARCH" = "linux_x86_64" ]; then
     # Native Linux build - no cross file needed

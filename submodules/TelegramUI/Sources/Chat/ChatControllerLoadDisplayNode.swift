@@ -692,7 +692,7 @@ extension ChatControllerImpl {
             }
         }
         
-        if #available(iOS 18.0, *) {
+        if #available(iOS 18.0, macCatalyst 26.0, *) {
             if engineExperimentalInternalTranslationService == nil, let hostView = self.context.sharedContext.mainWindow?.hostView {
                 let translationService = ExperimentalInternalTranslationServiceImpl(view: hostView.containerView)
                 engineExperimentalInternalTranslationService = translationService
@@ -4604,7 +4604,7 @@ extension ChatControllerImpl {
             var useSystemTranslation = false
             switch translationConfiguration.manual {
             case .system:
-                if #available(iOS 18.0, *) {
+                if #available(iOS 18.0, macCatalyst 26.0, *) {
                     useSystemTranslation = true
                 }
             default:

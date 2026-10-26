@@ -139,7 +139,12 @@ static void *openGLESContextQueueKey;
 
     dispatch_once(&pred, ^{
         [self useImageProcessingContext];
+#if TARGET_OS_MACCATALYST
+        glGetIntegerv(GL_MAX_VARYING_FLOATS, &maxVaryingVectors);
+        maxVaryingVectors /= 4;
+#else
         glGetIntegerv(GL_MAX_VARYING_VECTORS, &maxVaryingVectors);
+#endif
     });
 
     return maxVaryingVectors;

@@ -36,7 +36,10 @@ objc_library(
     includes = [
         "PublicHeaders",
     ],
-    deps = [
+    deps = select({
+        "//build-system:mac_catalyst": ["//build-system/macos/graphics:MacOpenGL"],
+        "//conditions:default": [],
+    }) + [
         "//submodules/SSignalKit/SSignalKit:SSignalKit",
         "//submodules/AppBundle:AppBundle",
     ],

@@ -144,6 +144,9 @@ then
 		if [ "$RAW_ARCH" = "sim_arm64" ]; then
 			PLATFORM="iPhoneSimulator"
 		    CFLAGS="$CFLAGS -mios-simulator-version-min=$DEPLOYMENT_TARGET --target=arm64-apple-ios$DEPLOYMENT_TARGET-simulator"
+		elif [ "${TELEGRAM_CATALYST:-0}" = "1" ] && [ "$RAW_ARCH" = "arm64" ]; then
+            PLATFORM="MacOSX"
+            CFLAGS="$CFLAGS --target=arm64-apple-ios15.0-macabi"
 		elif [ "$RAW_ARCH" = "macos_arm64" ]; then
 			PLATFORM="MacOSX"
 		    CFLAGS="$CFLAGS -mmacosx-version-min=14.0 --target=arm64-apple-macosx14.0"

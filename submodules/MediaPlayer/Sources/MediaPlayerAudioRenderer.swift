@@ -2,6 +2,7 @@ import Foundation
 import SwiftSignalKit
 import CoreMedia
 import AVFoundation
+import CoreAudio
 import TelegramCore
 import TelegramAudio
 

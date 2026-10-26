@@ -201,9 +201,14 @@ public final class AuthorizationSequenceController: NavigationController, ASAuth
                 controller?.inProgress = true
                 
                 let disableAuthTokens = self.sharedContext.immediateExperimentalUISettings.disableReloginTokens
+                #if targetEnvironment(macCatalyst)
+                let syncContacts = false
+                let authorizationPushConfiguration: Signal<AuthorizationCodePushNotificationConfiguration?, NoError> = .single(nil)
+                #else
                 let authorizationPushConfiguration = self.sharedContext.authorizationPushConfiguration
                 |> take(1)
                 |> timeout(2.0, queue: .mainQueue(), alternate: .single(nil))
+                #endif
                 let _ = (authorizationPushConfiguration
                 |> deliverOnMainQueue).startStandalone(next: { [weak self] authorizationPushConfiguration in
                     if let strongSelf = self {
@@ -319,6 +324,9 @@ public final class AuthorizationSequenceController: NavigationController, ASAuth
                 guard let self else {
                     return
                 }
+                #if targetEnvironment(macCatalyst)
+                let syncContacts = false
+                #endif
                 
                 self.actionDisposable.set((authorizeWithPasskey(
                     accountManager: self.sharedContext.accountManager,

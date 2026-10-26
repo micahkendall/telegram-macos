@@ -42,7 +42,9 @@ import MediaEditor
 import TelegramUIDeclareEncodables
 import ContextMenuScreen
 import MetalEngine
+#if !targetEnvironment(macCatalyst)
 import RecaptchaEnterprise
+#endif
 import NavigationBarNode
 import NavigationBarComponent
 import NavigationExpansionTransition
@@ -54,6 +56,9 @@ import WalletSendScreen
 import PasscodeCore
 import LiquidGlassShapes
 import MTProtoRustEngine
+#if targetEnvironment(macCatalyst)
+import MtProtoKit
+#endif
 
 #if DEBUG
 import AlertComponent
@@ -348,7 +353,9 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
     private let voipDeviceToken = Promise<Data?>(nil)
     private let regularDeviceToken = Promise<Data?>(nil)
     
+    #if !targetEnvironment(macCatalyst)
     private var recaptchaClientsBySiteKey: [String: Promise<RecaptchaClient>] = [:]
+    #endif
         
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         precondition(!testIsLaunched)
@@ -566,22 +573,49 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
         })
         self.clearNotificationsManager = clearNotificationsManager
         
-        let appVersion = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "unknown"
+        let shortVersion = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "unknown"
+        #if targetEnvironment(macCatalyst)
+        let appVersion = "\(shortVersion) \((Bundle.main.infoDictionary?["SOURCE"] as? String) ?? "DEBUG")"
+        #else
+        let appVersion = shortVersion
+        #endif
         
         let baseAppBundleId = Bundle.main.bundleIdentifier!
         let appGroupName = "group.\(baseAppBundleId)"
         try! PasscodeEnvironment.shared.configure(PasscodeConfiguration(appGroupIdentifier: appGroupName, processRole: .mainApp, biometricKeychainService: walletBiometricKeychainService), privateAccessGroup: {
             BuildConfig.keychainAccessGroup(baseAppBundleId: baseAppBundleId)
         })
-        let maybeAppGroupUrl = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupName)
+        let maybeAppGroupUrl = getAppGroupContainerURL(appGroupName)
         
         let buildConfig = BuildConfig(baseAppBundleId: baseAppBundleId)
         self.buildConfig = buildConfig
+        #if !targetEnvironment(macCatalyst)
         let signatureDict = BuildConfigExtra.signatureDict()
+        #endif
         
         let apiId: Int32 = buildConfig.apiId
         let apiHash: String = buildConfig.apiHash
+        #if targetEnvironment(macCatalyst)
+        let languagesCategory = "macos"
+        let useBetaFeatures = false
+        let isICloudEnabled = false
+        let networkAppData: Signal<Data?, NoError> = .single(MTMacOSClientAppData(Bundle.main))
+        let requestVerificationStream: Signal<[String: String], NoError> = .single([:])
+        #else
         let languagesCategory = "ios"
+        let useBetaFeatures = !buildConfig.isAppStoreBuild
+        let isICloudEnabled = buildConfig.isICloudEnabled
+        let networkAppData = self.regularDeviceToken.get() |> map { token -> Data? in
+            let tokenEnvironment: String
+            #if DEBUG
+            tokenEnvironment = "sandbox"
+            #else
+            tokenEnvironment = "production"
+            #endif
+            return buildConfig.bundleData(withAppToken: token, tokenType: "apns", tokenEnvironment: tokenEnvironment, signatureDict: signatureDict)
+        }
+        let requestVerificationStream = self.firebaseRequestVerificationSecretStream.get()
+        #endif
         
         let autolockDeadine: Signal<Int32?, NoError>
         if #available(iOS 10.0, *) {
@@ -602,26 +636,22 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
             languagesCategory: languagesCategory,
             appVersion: appVersion,
             voipMaxLayer: PresentationCallManagerImpl.voipMaxLayer,
-            voipVersions: PresentationCallManagerImpl.voipVersions(includeExperimental: true, includeReference: false).map { version, supportsVideo -> CallSessionManagerImplementationVersion in
+            voipVersions: PresentationCallManagerImpl.voipVersions(includeExperimental: true, includeReference: false).filter { version, _ in
+                #if targetEnvironment(macCatalyst)
+                if let profile = Bundle.main.infoDictionary?["TGMacClientProfile"] as? [String: Any], let nativeVersions = profile["call_versions"] as? [String] {
+                    return nativeVersions.contains(version)
+                }
+                #endif
+                return true
+            }.map { version, supportsVideo -> CallSessionManagerImplementationVersion in
                 CallSessionManagerImplementationVersion(version: version, supportsVideo: supportsVideo)
             },
-            appData: self.regularDeviceToken.get() |> map { token in
-                let tokenEnvironment: String
-                #if DEBUG
-                tokenEnvironment = "sandbox"
-                #else
-                tokenEnvironment = "production"
-                #endif
-                
-                let data = buildConfig.bundleData(withAppToken: token, tokenType: "apns", tokenEnvironment: tokenEnvironment, signatureDict: signatureDict)
-                if let data = data, let _ = String(data: data, encoding: .utf8) {
-                } else {
-                    Logger.shared.log("data", "can't deserialize")
-                }
-                return data
-            },
-            externalRequestVerificationStream: self.firebaseRequestVerificationSecretStream.get(),
+            appData: networkAppData,
+            externalRequestVerificationStream: requestVerificationStream,
             externalRecaptchaRequestVerification: { method, siteKey in
+                #if targetEnvironment(macCatalyst)
+                return .complete()
+                #else
                 return Signal<String?, NoError> { subscriber in
                     // Recaptcha.fetchClient's completion is @Sendable, so it does not inherit this
                     // closure's inferred main-actor isolation: from inside it neither the Promise (a
@@ -684,12 +714,13 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
                     }).startStandalone(next: subscriber.putNext, error: subscriber.putError, completed: subscriber.putCompletion)
                 }
                 |> runOn(Queue.mainQueue())
+            #endif
             },
             autolockDeadine: autolockDeadine,
             encryptionProvider: OpenSSLEncryptionProvider(),
             deviceModelName: nil,
-            useBetaFeatures: !buildConfig.isAppStoreBuild,
-            isICloudEnabled: buildConfig.isICloudEnabled,
+            useBetaFeatures: useBetaFeatures,
+            isICloudEnabled: isICloudEnabled,
             // Only the main app passes a factory: extensions stay on MtProtoKit. Whether the Rust
             // engine runs is decided per account by resolveNetworkEngine (Debug Settings switch,
             // mtproto_engine_rust_disabled, the factory's own declines).
@@ -1793,6 +1824,13 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
     }
 
     func attach(scene: UIWindowScene, connectionOptions: UIScene.ConnectionOptions) {
+        #if targetEnvironment(macCatalyst)
+        scene.title = "Telegram"
+        scene.titlebar?.titleVisibility = .visible
+        scene.titlebar?.toolbarStyle = .unifiedCompact
+        scene.titlebar?.separatorStyle = .none
+        #endif
+
         self.statusBarHost?.scene = scene
         self.window?.windowScene = scene
 

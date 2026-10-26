@@ -1,0 +1,183 @@
+diff --git a/configs/BUILD b/configs/BUILD
+index 52af272..9d353ce 100644
+--- a/configs/BUILD
++++ b/configs/BUILD
+@@ -16,7 +16,7 @@ selects.config_setting_group(
+ 
+ [
+     config_setting(
+-        name = cpu,
++        name = "ios_device_arm64" if cpu == "ios_arm64" else cpu,
+         constraint_values = constraints,
+     )
+     for cpu, constraints in APPLE_PLATFORMS_CONSTRAINTS.items()
+@@ -36,3 +36,9 @@ bzl_library(
+     name = "platforms",
+     srcs = ["platforms.bzl"],
+ )
++
++# ARM64 code is shared by the iOS device and Mac Catalyst ABIs.
++selects.config_setting_group(
++    name = "ios_arm64",
++    match_any = [":ios_device_arm64", ":ios_catalyst_arm64"],
++)
+diff --git a/configs/platforms.bzl b/configs/platforms.bzl
+index f703c92..8842b7b 100644
+--- a/configs/platforms.bzl
++++ b/configs/platforms.bzl
+@@ -1,6 +1,11 @@
+ """Defines all the Apple CPUs and their constraints"""
+ 
+ APPLE_PLATFORMS_CONSTRAINTS = {
++    "ios_catalyst_arm64": [
++        "@platforms//os:ios",
++        "@platforms//cpu:arm64",
++        Label("//constraints:catalyst"),
++    ],
+     "darwin_arm64": [
+         "@platforms//os:macos",
+         "@platforms//cpu:arm64",
+@@ -101,6 +106,7 @@ APPLE_SIMULATOR_CPUS = [
+ ]
+ 
+ CPU_TO_DEFAULT_PLATFORM_NAME = {
++    "ios_catalyst_arm64": "ios_catalyst_arm64",
+     "darwin_arm64": "macos_arm64",
+     "darwin_arm64e": "macos_arm64e",
+     "darwin_x86_64": "macos_x86_64",
+diff --git a/crosstool/cc_toolchain_config.bzl b/crosstool/cc_toolchain_config.bzl
+index 235428b..78771e0 100644
+--- a/crosstool/cc_toolchain_config.bzl
++++ b/crosstool/cc_toolchain_config.bzl
+@@ -108,8 +108,13 @@ please file an issue at https://github.com/bazelbuild/apple_support/issues/new
+     target_os_version = xcode_config.minimum_os_for_platform_type(platform_type)
+     sdk_version = _sdk_version_for_platform(xcode_config, platform_type)
+ 
++    is_catalyst = ctx.attr.cpu == "ios_catalyst_arm64"
++    if is_catalyst:
++        sdk_version = _sdk_version_for_platform(xcode_config, apple_common.platform_type.macos)
+     is_simulator = False
+-    if (ctx.attr.cpu == "ios_arm64"):
++    if is_catalyst:
++        target_system_name = "arm64-apple-ios{}-macabi".format(target_os_version)
++    elif (ctx.attr.cpu == "ios_arm64"):
+         target_system_name = "arm64-apple-ios{}".format(target_os_version)
+     elif (ctx.attr.cpu == "tvos_arm64"):
+         target_system_name = "arm64-apple-tvos{}".format(target_os_version)
+@@ -171,7 +176,7 @@ please file an issue at https://github.com/bazelbuild/apple_support/issues/new
+         abi_version = "local"
+ 
+     arch = ctx.attr.cpu.split("_", 1)[-1]
+-    if ctx.attr.cpu in ["ios_sim_arm64", "tvos_sim_arm64", "visionos_sim_arm64", "watchos_arm64", "watchos_device_arm64"]:
++    if ctx.attr.cpu in ["ios_catalyst_arm64", "ios_sim_arm64", "tvos_sim_arm64", "visionos_sim_arm64", "watchos_arm64", "watchos_device_arm64"]:
+         arch = "arm64"
+     elif ctx.attr.cpu in ["watchos_device_arm64e"]:
+         arch = "arm64e"
+@@ -495,7 +500,8 @@ please file an issue at https://github.com/bazelbuild/apple_support/issues/new
+         objc_fully_link_action,
+     ]
+ 
+-    if (ctx.attr.cpu == "ios_arm64" or
++    if (ctx.attr.cpu == "ios_catalyst_arm64" or
++        ctx.attr.cpu == "ios_arm64" or
+         ctx.attr.cpu == "ios_arm64e" or
+         ctx.attr.cpu == "ios_sim_arm64" or
+         ctx.attr.cpu == "ios_x86_64" or
+@@ -808,7 +814,7 @@ please file an issue at https://github.com/bazelbuild/apple_support/issues/new
+             "XCODE_VERSION_OVERRIDE": str(xcode_config.xcode_version()),
+             # TODO: Remove once we drop bazel 7.x support
+             "APPLE_SDK_VERSION_OVERRIDE": str(sdk_version),
+-            "APPLE_SDK_PLATFORM": _sdk_name(platform_type, is_simulator),
++            "APPLE_SDK_PLATFORM": "MacOSX" if is_catalyst else _sdk_name(platform_type, is_simulator),
+             "ZERO_AR_DATE": "1",
+         }
+     else:
+@@ -830,7 +836,10 @@ please file an issue at https://github.com/bazelbuild/apple_support/issues/new
+                             "-no-canonical-prefixes",
+                             "-target",
+                             target_system_name,
+-                        ],
++                        ] + ([
++                            "-isystem", "__BAZEL_XCODE_SDKROOT__/System/iOSSupport/usr/include",
++                            "-iframework", "__BAZEL_XCODE_SDKROOT__/System/iOSSupport/System/Library/Frameworks",
++                        ] if is_catalyst else []),
+                     ),
+                 ],
+             ),
+@@ -848,13 +857,24 @@ please file an issue at https://github.com/bazelbuild/apple_support/issues/new
+         ],
+     )
+ 
++    catalyst_frameworks_feature = feature(
++        name = "catalyst_framework_search_paths",
++        enabled = is_catalyst,
++        flag_sets = [flag_set(
++            actions = _DYNAMIC_LINK_ACTIONS,
++            flag_groups = [flag_group(flags = [
++                "-F__BAZEL_XCODE_SDKROOT__/System/iOSSupport/System/Library/Frameworks",
++            ])],
++        )],
++    )
++
+     default_link_flags_feature = feature(
+         name = "default_link_flags",
+         enabled = True,
+         flag_sets = [
+             flag_set(
+                 actions = _DYNAMIC_LINK_ACTIONS,
+-                flag_groups = [flag_group(flags = ["-fobjc-link-runtime"])],
++                flag_groups = [flag_group(flags = ["-fobjc-link-runtime"] + (["-L__BAZEL_XCODE_SDKROOT__/System/iOSSupport/usr/lib"] if is_catalyst else []))],
+                 with_features = [with_feature_set(not_features = ["kernel_extension"])],
+             ),
+         ],
+@@ -1181,7 +1201,8 @@ please file an issue at https://github.com/bazelbuild/apple_support/issues/new
+         ],
+     )
+ 
+-    if (ctx.attr.cpu == "ios_arm64" or
++    if (ctx.attr.cpu == "ios_catalyst_arm64" or
++        ctx.attr.cpu == "ios_arm64" or
+         ctx.attr.cpu == "ios_arm64e" or
+         ctx.attr.cpu == "ios_x86_64" or
+         ctx.attr.cpu == "ios_sim_arm64" or
+@@ -2354,6 +2375,7 @@ please file an issue at https://github.com/bazelbuild/apple_support/issues/new
+         coverage_prefix_map_feature,
+         coverage_prefix_map_absolute_sources_non_hermetic_private_feature,
+         apply_default_compiler_flags_feature,
++        catalyst_frameworks_feature,
+         include_system_dirs_feature,
+         headerpad_feature,
+         objc_arc_feature,
+diff --git a/lib/apple_support.bzl b/lib/apple_support.bzl
+index 58f61a0..b25c911 100644
+--- a/lib/apple_support.bzl
++++ b/lib/apple_support.bzl
+@@ -308,6 +308,9 @@ def _platform_constraint_attrs():
+         "_apple_device_constraint": attr.label(
+             default = Label("//constraints:device"),
+         ),
++        "_apple_catalyst_constraint": attr.label(
++            default = Label("//constraints:catalyst"),
++        ),
+         "_apple_simulator_constraint": attr.label(
+             default = Label("//constraints:simulator"),
+         ),
+@@ -560,6 +563,9 @@ def _target_environment_from_rule_ctx(
+         A `String` representing the selected environment (e.g. `device`, `simulator`)  or `None` if
+         no constraint is found.
+     """
++    catalyst_constraint = ctx.attr._apple_catalyst_constraint[platform_common.ConstraintValueInfo]
++    if ctx.target_platform_has_constraint(catalyst_constraint):
++        return "catalyst"
+     device_constraint = ctx.attr._apple_device_constraint[platform_common.ConstraintValueInfo]
+     simulator_constraint = ctx.attr._apple_simulator_constraint[platform_common.ConstraintValueInfo]
+ 
+@@ -617,6 +623,8 @@ def _target_os_from_rule_ctx(
+ 
+ def _platform_from_info(*, apple_platform_info):
+     """Returns an apple_common.platform given the contents of an ApplePlatformInfo provider"""
++    if apple_platform_info.target_os == "ios" and apple_platform_info.target_environment == "catalyst":
++        return apple_common.platform.macos
+     if apple_platform_info.target_os == "ios":
+         if apple_platform_info.target_environment == "device":
+             return apple_common.platform.ios_device

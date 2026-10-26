@@ -1,0 +1,63 @@
+diff --git a/tgcalls/platform/darwin/TGRTCVideoDecoderH265.mm b/tgcalls/platform/darwin/TGRTCVideoDecoderH265.mm
+index 137b4f5..12ece88 100644
+--- a/tgcalls/platform/darwin/TGRTCVideoDecoderH265.mm
++++ b/tgcalls/platform/darwin/TGRTCVideoDecoderH265.mm
+@@ -277,7 +277,9 @@ - (int)resetDecompressionSession {
+   // we can pass CVPixelBuffers as native handles in decoder output.
+   static size_t const attributesSize = 3;
+   CFTypeRef keys[attributesSize] = {
+-#if defined(WEBRTC_IOS)
++#if TARGET_OS_MACCATALYST
++    kCVPixelBufferMetalCompatibilityKey,
++#elif defined(WEBRTC_IOS)
+     kCVPixelBufferOpenGLESCompatibilityKey,
+ #elif defined(WEBRTC_MAC)
+     kCVPixelBufferOpenGLCompatibilityKey,
+diff --git a/tgcalls/platform/darwin/TGRTCVideoEncoderH264.mm b/tgcalls/platform/darwin/TGRTCVideoEncoderH264.mm
+index b478e41..b79fbe0 100644
+--- a/tgcalls/platform/darwin/TGRTCVideoEncoderH264.mm
++++ b/tgcalls/platform/darwin/TGRTCVideoEncoderH264.mm
+@@ -619,7 +619,9 @@ - (int)resetCompressionSessionWithPixelFormat:(OSType)framePixelFormat {
+   // buffers retrieved from the encoder's pixel buffer pool.
+   const size_t attributesSize = 3;
+   CFTypeRef keys[attributesSize] = {
+-#if defined(WEBRTC_IOS)
++#if TARGET_OS_MACCATALYST
++    kCVPixelBufferMetalCompatibilityKey,
++#elif defined(WEBRTC_IOS)
+     kCVPixelBufferOpenGLESCompatibilityKey,
+ #elif defined(WEBRTC_MAC)
+     kCVPixelBufferOpenGLCompatibilityKey,
+diff --git a/tgcalls/platform/darwin/TGRTCVideoEncoderH265.mm b/tgcalls/platform/darwin/TGRTCVideoEncoderH265.mm
+index ede6493..060d694 100644
+--- a/tgcalls/platform/darwin/TGRTCVideoEncoderH265.mm
++++ b/tgcalls/platform/darwin/TGRTCVideoEncoderH265.mm
+@@ -381,7 +381,9 @@ - (int)resetCompressionSession {
+   // buffers retrieved from the encoder's pixel buffer pool.
+   const size_t attributesSize = 3;
+   CFTypeRef keys[attributesSize] = {
+-#if defined(WEBRTC_IOS)
++#if TARGET_OS_MACCATALYST
++    kCVPixelBufferMetalCompatibilityKey,
++#elif defined(WEBRTC_IOS)
+     kCVPixelBufferOpenGLESCompatibilityKey,
+ #elif defined(WEBRTC_MAC)
+     kCVPixelBufferOpenGLCompatibilityKey,
+diff --git a/tgcalls/platform/darwin/VideoCameraCapturer.mm b/tgcalls/platform/darwin/VideoCameraCapturer.mm
+index 68af2e6..bad83a7 100644
+--- a/tgcalls/platform/darwin/VideoCameraCapturer.mm
++++ b/tgcalls/platform/darwin/VideoCameraCapturer.mm
+@@ -843,11 +843,13 @@ - (BOOL)setupCaptureSession:(AVCaptureSession *)captureSession {
+     _captureSession = captureSession;
+     _captureSession.sessionPreset = AVCaptureSessionPresetInputPriority;
+     _captureSession.usesApplicationAudioSession = true;
++#if !TARGET_OS_MACCATALYST
+     if (@available(iOS 16.0, *)) {
+         if (_captureSession.isMultitaskingCameraAccessSupported) {
+             _captureSession.multitaskingCameraAccessEnabled = true;
+         }
+     }
++#endif
+     [self setupVideoDataOutput];
+     // Add the output.
+     if (![_captureSession canAddOutput:_videoDataOutput]) {

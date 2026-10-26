@@ -1,0 +1,98 @@
+diff --git a/swift/internal/target_triples.bzl b/swift/internal/target_triples.bzl
+index f0cb378..c28a7cc 100644
+--- a/swift/internal/target_triples.bzl
++++ b/swift/internal/target_triples.bzl
+@@ -19,6 +19,7 @@
+ # require these.
+ _TRIPLE_OS_TO_PLATFORM = {
+     ("ios", None): apple_common.platform.ios_device,
++    ("ios", "macabi"): apple_common.platform.macos,
+     ("ios", "simulator"): apple_common.platform.ios_simulator,
+     ("macos", None): apple_common.platform.macos,
+     ("tvos", None): apple_common.platform.tvos_device,
+@@ -186,6 +187,8 @@ def _platform_name_for_swift(triple):
+         return "macosx"
+ 
+     is_simulator = (triple.environment == "simulator")
++    if os == "ios" and triple.environment == "macabi":
++        return "macosx"
+     if os == "ios":
+         return "iphonesimulator" if is_simulator else "iphoneos"
+     if os == "tvos":
+diff --git a/swift/toolchains/xcode_swift_toolchain.bzl b/swift/toolchains/xcode_swift_toolchain.bzl
+index 93d80a6..566b52f 100644
+--- a/swift/toolchains/xcode_swift_toolchain.bzl
++++ b/swift/toolchains/xcode_swift_toolchain.bzl
+@@ -195,7 +195,7 @@ def _sdk_developer_framework_dir(apple_toolchain, target_triple):
+     # All platforms have a `Developer/Library/Frameworks` directory in their SDK
+     # root except for macOS (all versions of Xcode so far)
+     os = target_triples.unversioned_os(target_triple)
+-    if os == "macos":
++    if os == "macos" or target_triple.environment == "macabi":
+         return None
+ 
+     return paths.join(apple_toolchain.sdk_dir(), "Developer/Library/Frameworks")
+@@ -435,6 +435,12 @@ def _all_action_configs(
+             configurators = [
+                 add_arg("-target", target_triples.str(target_triple)),
+                 add_arg("-sdk", apple_toolchain.sdk_dir()),
++            ] + ([
++                add_arg("-F", apple_toolchain.sdk_dir() + "/System/iOSSupport/System/Library/Frameworks"),
++                add_arg("-I", apple_toolchain.sdk_dir() + "/System/iOSSupport/usr/lib/swift"),
++                add_arg("-Xcc", "-isystem"),
++                add_arg("-Xcc", apple_toolchain.sdk_dir() + "/System/iOSSupport/usr/include"),
++            ] if target_triple.environment == "macabi" else []) + [
+             ],
+         ),
+     ]
+@@ -447,6 +453,12 @@ def _all_action_configs(
+                 # NOTE: This seems wrong but is also what Xcode does
+                 add_arg("-target", sdk_version_triple),
+                 add_arg("-sdk", apple_toolchain.sdk_dir()),
++            ] + ([
++                add_arg("-F", apple_toolchain.sdk_dir() + "/System/iOSSupport/System/Library/Frameworks"),
++                add_arg("-I", apple_toolchain.sdk_dir() + "/System/iOSSupport/usr/lib/swift"),
++                add_arg("-Xcc", "-isystem"),
++                add_arg("-Xcc", apple_toolchain.sdk_dir() + "/System/iOSSupport/usr/include"),
++            ] if target_triple.environment == "macabi" else []) + [
+             ],
+         ),
+         ActionConfigInfo(
+diff --git a/tools/explicit_modules/scan.py b/tools/explicit_modules/scan.py
+index d5e25c4..4034be5 100755
+--- a/tools/explicit_modules/scan.py
++++ b/tools/explicit_modules/scan.py
+@@ -961,6 +961,9 @@ def _main() -> None:
+         buf.write('    visibility = ["//visibility:private"],\n')
+         buf.write(")\n")
+ 
++    # Catalyst currently uses compiler-discovered SDK modules. Do not select device or
++    # macOS PCMs: both have a different target triple from UIKit on macOS.
++    buf.write('config_setting(name = "MacCatalyst_sdk", constraint_values = ["@platforms//os:ios", "@apple_support//constraints:catalyst"])\n')
+     all_modules_by_sdk: dict[str, set[str]] = {}
+     all_modules: set[str] = set()
+     per_sdk_text: dict[str, str] = {}
+@@ -1005,6 +1008,7 @@ def _main() -> None:
+     for sdk in sdk_names:
+         if all_modules_by_sdk.get(sdk):
+             buf.write(f'        ":{sdk}_sdk": ":{sdk}_all_modules",\n')
++    buf.write('        ":MacCatalyst_sdk": ":_empty_all_modules",\n')
+     buf.write('        "@platforms//os:none": ":_empty_all_modules",\n')
+     buf.write("    }),\n")
+     buf.write(")\n")
+@@ -1016,6 +1020,7 @@ def _main() -> None:
+     for sdk in sdk_names:
+         if all_modules_by_sdk.get(sdk):
+             buf.write(f'        ":{sdk}_sdk": ":{sdk}_implicit_modules",\n')
++    buf.write('        ":MacCatalyst_sdk": ":_empty_implicit_modules",\n')
+     buf.write('        "@platforms//os:none": ":_empty_implicit_modules",\n')
+     buf.write("    }),\n")
+     buf.write(")\n")
+@@ -1027,6 +1032,7 @@ def _main() -> None:
+     for sdk in sdk_names:
+         if all_modules_by_sdk.get(sdk):
+             buf.write(f'        ":{sdk}_sdk": ":{sdk}_all_cross_import_overlays",\n')
++    buf.write('        ":MacCatalyst_sdk": ":_empty_cross_import_overlays",\n')
+     buf.write('        "@platforms//os:none": ":_empty_cross_import_overlays",\n')
+     buf.write("    }),\n")
+     buf.write(")\n")

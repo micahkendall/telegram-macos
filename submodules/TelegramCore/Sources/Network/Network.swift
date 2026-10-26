@@ -702,7 +702,7 @@ func initializedNetwork(accountId: AccountRecordId, arguments: NetworkInitializa
             #endif*/
             
             var rustDisabledReason = networkEngineRustDisabledReason(appConfiguration: appConfiguration, engineState: networkEngine.state, appVersion: arguments.appVersion, timestamp: Int32(Date().timeIntervalSince1970))
-            #if os(macOS)
+            #if os(macOS) || targetEnvironment(macCatalyst)
             if rustDisabledReason == nil {
                 rustDisabledReason = networkLivenessDisabledReason()
             }
@@ -714,7 +714,7 @@ func initializedNetwork(accountId: AccountRecordId, arguments: NetworkInitializa
             // On iOS the engine changes only through the Debug Settings switch, at the next launch: no
             // wrapper is created, so switchEngine/disableRustEngine have nothing to act on and the
             // network runs the resolved engine directly, exactly as without a factory.
-            #if os(macOS)
+            #if os(macOS) || targetEnvironment(macCatalyst)
             let prefersRustEngine = (networkEngine.settings?.engine ?? NetworkEngineSettings.defaultSettings.engine) == .rust
             let rustEngineWaitsForWebProxy = arguments.networkEngineFactory != nil && !rustEngineDisabled && resolvedEngine.kind == .mtProtoKit && prefersRustEngine && initialActiveServer?.isWebProxy == true && arguments.networkEngineFactory?.supportsWebProxy != true
             // Live switching only ever moves a network off Rust, or back to Rust after a WEB proxy, so it
@@ -1098,7 +1098,7 @@ public final class Network: NSObject {
             return nil
         })
         
-        #if os(macOS)
+        #if os(macOS) || targetEnvironment(macCatalyst)
         if let switchingEngine = switchingEngine, !isAppExtension {
             let monitor = NetworkLivenessMonitor(queue: queue, datacenterId: datacenterId, dependencies: NetworkLivenessMonitor.Dependencies(
                 clock: networkLivenessUptime,

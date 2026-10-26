@@ -123,7 +123,7 @@ final class PasscodeKeychain: PasscodeStorage {
             kSecAttrAccount as String: account,
             kSecAttrSynchronizable as String: false
         ]
-        #if !os(macOS)
+        #if !os(macOS) && !targetEnvironment(macCatalyst)
         query[kSecAttrAccessGroup as String] = try account.hasPrefix("biometric.") ? self.environment.privateAccessGroup() : self.environment.sharedAccessGroup()
         #endif
         return query
@@ -131,7 +131,11 @@ final class PasscodeKeychain: PasscodeStorage {
 
     private func service(_ account: String) throws -> String {
         let service = try account.hasPrefix("biometric.") ? self.environment.biometricKeychainService() : "org.telegram.passcode.v1"
-        #if os(macOS)
+        #if targetEnvironment(macCatalyst)
+        // A locally signed Mac build has no shared keychain entitlement. Keep its
+        // items isolated from other Telegram clients by the application identity.
+        return "org.telegram.catalyst.\(Bundle.main.bundleIdentifier ?? "local.telegramios.maccatalyst")/\(service)"
+        #elseif os(macOS)
         return PasscodeKeychainScope.service(service, environment: self.environment)
         #else
         return service

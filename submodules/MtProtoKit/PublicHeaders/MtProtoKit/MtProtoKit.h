@@ -2,6 +2,7 @@
 
 #import <MtProtoKit/MTDatacenterAuthInfo.h>
 #import <MtProtoKit/MTApiEnvironment.h>
+#import <MtProtoKit/MTMacOSClientInfo.h>
 #import <MtProtoKit/MTAtomic.h>
 #import <MtProtoKit/MTBackupAddressSignals.h>
 #import <MtProtoKit/MTBag.h>

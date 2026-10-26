@@ -1,0 +1,60 @@
+#import <MacOpenGL/MacOpenGL.h>
+#include <assert.h>
+int main(void) { @autoreleasepool {
+    EAGLContext *context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
+    assert(context && [EAGLContext setCurrentContext:context]);
+    assert([NSStringFromClass([context class]) isEqualToString:@"TGCatalystEAGLContext"]);
+    const char *shaderSource = "precision highp float; void main() { gl_FragColor = vec4(1.0); }";
+    GLuint shader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(shader, 1, &shaderSource, NULL); glCompileShader(shader);
+    GLint compiled; glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
+    if (!compiled) { char message[1024]; glGetShaderInfoLog(shader, 1024, NULL, message); puts(message); }
+    assert(compiled); glDeleteShader(shader);
+    CVPixelBufferRef buffer = NULL;
+    assert(CVPixelBufferCreate(kCFAllocatorDefault,16,16,kCVPixelFormatType_32BGRA,NULL,&buffer)==kCVReturnSuccess);
+    CVOpenGLESTextureCacheRef cache=NULL;
+    assert(CVOpenGLESTextureCacheCreate(NULL,NULL,context,NULL,&cache)==kCVReturnSuccess);
+    CVOpenGLESTextureRef texture=NULL;
+    assert(CVOpenGLESTextureCacheCreateTextureFromImage(NULL,cache,buffer,NULL,GL_TEXTURE_2D,GL_RGBA,16,16,GL_BGRA,GL_UNSIGNED_BYTE,0,&texture)==kCVReturnSuccess);
+    GLuint framebuffer; glGenFramebuffers(1,&framebuffer); glBindFramebuffer(GL_FRAMEBUFFER,framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,CVOpenGLESTextureGetName(texture),0);
+    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER)==GL_FRAMEBUFFER_COMPLETE);
+    glClearColor(0.2,0.4,0.6,1); glClear(GL_COLOR_BUFFER_BIT); glFinish();
+    CVPixelBufferLockBaseAddress(buffer,kCVPixelBufferLock_ReadOnly);
+    unsigned char *pixel=CVPixelBufferGetBaseAddress(buffer);
+    printf("BGRA=%d,%d,%d,%d\n",pixel[0],pixel[1],pixel[2],pixel[3]);
+    assert(pixel[0]==153 && pixel[1]==102 && pixel[2]==51 && pixel[3]==255);
+    CVPixelBufferUnlockBaseAddress(buffer,kCVPixelBufferLock_ReadOnly);
+    EAGLContext *shared = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2 sharegroup:context.sharegroup];
+    assert(shared && [EAGLContext setCurrentContext:shared]);
+    assert(glIsTexture(CVOpenGLESTextureGetName(texture)));
+    [EAGLContext setCurrentContext:context];
+    CIContext *ci = [CIContext contextWithOptions:nil];
+    CIImage *green = [[CIImage imageWithColor:[CIColor colorWithRed:0 green:1 blue:0]] imageByCroppingToRect:CGRectMake(0,0,16,16)];
+    TGMacGLUploadCIImage(ci, green, CVOpenGLESTextureGetName(texture));
+    glFinish();
+    CVPixelBufferLockBaseAddress(buffer,kCVPixelBufferLock_ReadOnly);
+    pixel=CVPixelBufferGetBaseAddress(buffer);
+    assert(pixel[0]==0 && pixel[1]==255 && pixel[2]==0 && pixel[3]==255);
+    CVPixelBufferUnlockBaseAddress(buffer,kCVPixelBufferLock_ReadOnly);
+    CAEAGLLayer *layer=[[CAEAGLLayer alloc] init]; layer.bounds=CGRectMake(0,0,16,16); layer.contentsScale=1;
+    GLuint renderbuffer; glGenRenderbuffers(1,&renderbuffer); glBindRenderbuffer(GL_RENDERBUFFER,renderbuffer);
+    assert([context renderbufferStorage:GL_RENDERBUFFER fromDrawable:layer]);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_RENDERBUFFER,renderbuffer);
+    glClearColor(1,0,0,1); glClear(GL_COLOR_BUFFER_BIT);
+    assert([context presentRenderbuffer:GL_RENDERBUFFER]);
+    CGImageRef image=(__bridge CGImageRef)layer.contents; assert(image && CGImageGetWidth(image)==16);
+    CFDataRef bytes=CGDataProviderCopyData(CGImageGetDataProvider(image)); pixel=(unsigned char *)CFDataGetBytePtr(bytes);
+    printf("drawable RGBA=%d,%d,%d,%d\n",pixel[0],pixel[1],pixel[2],pixel[3]);
+    assert(pixel[0]==255 && pixel[1]==0 && pixel[2]==0 && pixel[3]==255); CFRelease(bytes);
+    glEnable(GL_SCISSOR_TEST); glScissor(0,8,16,8);
+    glClearColor(0,0,1,1); glClear(GL_COLOR_BUFFER_BIT); glDisable(GL_SCISSOR_TEST);
+    assert([context presentRenderbuffer:GL_RENDERBUFFER]);
+    image=(__bridge CGImageRef)layer.contents;
+    bytes=CGDataProviderCopyData(CGImageGetDataProvider(image)); pixel=(unsigned char *)CFDataGetBytePtr(bytes);
+    assert(pixel[0]==0 && pixel[2]==255);
+    assert(pixel[15*16*4]==255 && pixel[15*16*4+2]==0); CFRelease(bytes);
+    glDeleteRenderbuffers(1,&renderbuffer); glDeleteFramebuffers(1,&framebuffer);
+    CFRelease(texture); CFRelease(cache); CVPixelBufferRelease(buffer); [EAGLContext setCurrentContext:nil];
+    puts("Native Catalyst graphics checks passed");
+} return 0; }

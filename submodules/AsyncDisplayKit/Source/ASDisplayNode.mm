@@ -551,7 +551,7 @@ ASSynthesizeLockingMethodsWithMutex(__instanceLock__);
     // CAEAGLLayer
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    if([[view.layer class] isSubclassOfClass:[CAEAGLLayer class]]){
+    if([[view.layer class] isSubclassOfClass:NSClassFromString(@"CAEAGLLayer")]){
       _flags.canClearContentsOfLayer = NO;
     }
 #pragma clang diagnostic pop

@@ -64,6 +64,11 @@ genrule(
         echo "Unsupported architecture $(TARGET_CPU)"
     fi
 
+    if [ "$${TELEGRAM_CATALYST:-0}" = "1" ] && [ "$$BUILD_ARCH" = "arm64" ]; then
+        BUILD_ARCH="macos_arm64"
+        PLATFORM_HEADER_DIR="arm64-darwin22-gcc"
+    fi
+
     BUILD_DIR="$(RULEDIR)/build_$${BUILD_ARCH}"
     rm -rf "$$BUILD_DIR"
     mkdir -p "$$BUILD_DIR"

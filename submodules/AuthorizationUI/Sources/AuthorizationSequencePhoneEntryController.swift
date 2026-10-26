@@ -94,6 +94,12 @@ public final class AuthorizationSequencePhoneEntryController: ViewController, MF
             self.navigationItem.leftBarButtonItem = UIBarButtonItem(title: "___close", style: .plain, target: self, action: #selector(self.cancelPressed))
         }
         
+        #if targetEnvironment(macCatalyst)
+        if account != nil {
+            self.navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Log in with QR Code", style: .plain, target: self, action: #selector(self.showMacQrLogin))
+        }
+        #endif
+
         if let countriesConfiguration {
             AuthorizationSequenceCountrySelectionController.setupCountryCodes(countries: countriesConfiguration.countries, codesByPrefix: countriesConfiguration.countriesByPrefix)
         }
@@ -107,11 +113,41 @@ public final class AuthorizationSequencePhoneEntryController: ViewController, MF
         self.termsDisposable.dispose()
     }
     
+    #if targetEnvironment(macCatalyst)
+    @objc private func showMacQrLogin() {
+        self.view.endEditing(true)
+        let controller = MacAuthorizationQrController()
+        controller.retry = { [weak self] in
+            self?.controllerNode.beginQrLogin()
+        }
+        controller.closed = { [weak self] in
+            self?.controllerNode.endQrLogin()
+        }
+        self.controllerNode.qrCodeUpdated = { [weak controller] image in
+            controller?.update(image: image)
+        }
+        self.controllerNode.qrLoginError = { [weak controller] rateLimited in
+            controller?.showError(rateLimited: rateLimited)
+        }
+        self.controllerNode.qrLoginCompleted = { [weak self, weak controller] in
+            self?.controllerNode.endQrLogin()
+            controller?.dismiss(animated: true)
+        }
+        let navigationController = UINavigationController(rootViewController: controller)
+        navigationController.modalPresentationStyle = .formSheet
+        self.present(navigationController, animated: true)
+        self.controllerNode.beginQrLogin()
+    }
+    #endif
+
     @objc private func cancelPressed() {
         self.back()
     }
     
     func updateNavigationItems() {
+        #if targetEnvironment(macCatalyst)
+        return
+        #else
         guard let layout = self.validLayout, layout.size.width < 360.0 else {
             return
         }
@@ -122,6 +158,7 @@ public final class AuthorizationSequencePhoneEntryController: ViewController, MF
         } else {
             self.navigationItem.rightBarButtonItem = UIBarButtonItem(title: self.presentationData.strings.Common_Next, style: .done, target: self, action: #selector(self.nextPressed))
         }
+        #endif
     }
     
     public func updateData(countryCode: Int32, countryName: String?, number: String) {

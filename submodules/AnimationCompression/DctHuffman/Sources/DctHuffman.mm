@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <vector>
+#include <iostream>
 
 namespace DctHuffman {
     typedef std::function<void(unsigned char)> WRITE_ONE_BYTE;
@@ -250,7 +251,7 @@ bool readMoreData(std::vector<uint8_t> const &bytes, int &readPosition, unsigned
     
     // Detect errors
     if (currentDataLength > 24) { // Unsigned int can hold at most 32 = 24+8 bits
-        //cout << "ERROR: Code value not found in Huffman table: "<<data<<endl;
+        //cout << "ERROR: Code value not found in Huffman table: "<<data<<std::endl;
         
         // Truncate data one by one bit in hope that we will eventually find a correct code
         data = data - ((data >> (currentDataLength-1)) << (currentDataLength-1));
@@ -281,7 +282,7 @@ bool readMoreData(std::vector<uint8_t> const &bytes, int &readPosition, unsigned
             data = data >> 8;
             currentDataLength -= 8;
 #if DEBUGLEVEL>1
-            cout << "End of image marker"<<endl;
+            std::cout << "End of image marker"<<std::endl;
 #endif
             return false;
         }
@@ -289,7 +290,7 @@ bool readMoreData(std::vector<uint8_t> const &bytes, int &readPosition, unsigned
         // Restart marker means data goes blank
         if (binaryData >= 0xd0 && binaryData <= 0xd7) {
             /*#if DEBUGLEVEL>1
-             cout << "Restart marker"<<endl;
+             std::cout << "Restart marker"<<std::endl;
              #endif*/
             
             data = 0;
@@ -303,7 +304,7 @@ bool readMoreData(std::vector<uint8_t> const &bytes, int &readPosition, unsigned
             data = (data << 8) + binaryData;
             currentDataLength += 8; //Increase current data length for 8 because we read one new byte
 #if DEBUGLEVEL>1
-            cout << "Stuffing"<<endl;
+            std::cout << "Stuffing"<<std::endl;
 #endif
         }
     }
@@ -385,11 +386,11 @@ bool readHuffmanBlock(std::vector<uint8_t> const &bytes, int &readPosition, int 
                     data = data - (DCCoeficient << currentDataLength);
                     
                     // If MSB in DC coefficient starts with 0, then substract value of DC with 2^bitlength+1
-                    //cout << "Before substract "<<DCCoeficient<<" BL "<<int(bitLength)<<endl;
+                    //cout << "Before substract "<<DCCoeficient<<" BL "<<int(bitLength)<<std::endl;
                     if ( bitLength != 0 && (DCCoeficient>>(bitLength-1)) == 0 ) {
                         DCCoeficient = DCCoeficient - (2 << (bitLength-1)) + 1;
                     }
-                    //cout << "After substract "<<DCCoeficient<<" previousDC "<<previousDC[currentComponent]<<endl;
+                    //cout << "After substract "<<DCCoeficient<<" previousDC "<<previousDC[currentComponent]<<std::endl;
                     
                     previousDC = DCCoeficient + previousDC;
                     dataBlock[m] = previousDC;

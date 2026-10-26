@@ -27,3 +27,14 @@ build:macos --strategy=SwiftCompile=worker
 
 common:macos --features=swift.use_global_module_cache
 common:macos --features=oso_prefix_is_pwd
+
+# Compile UIKit code against the Mac Catalyst ABI and the MacOSX SDK.
+build:mac-catalyst --ios_multi_cpus=arm64
+build:mac-catalyst --ios_minimum_os=15.0
+build:mac-catalyst --@build_bazel_apple_support//platforms:ios_arm64_platform=@build_bazel_apple_support//platforms:ios_catalyst_arm64
+build:mac-catalyst --//Telegram:disableExtensions
+build:mac-catalyst --//Telegram:disableProvisioningProfiles
+build:mac-catalyst --features=disable_legacy_signing
+build:mac-catalyst --define=telegram_catalyst=true
+build:mac-catalyst --action_env=TELEGRAM_CATALYST=1
+build:mac-catalyst --features=-swift.use_c_modules,-swift.use_explicit_swift_module_map

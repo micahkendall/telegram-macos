@@ -139,6 +139,9 @@ private func deviceSafeInsets(deviceMetrics: DeviceMetrics, windowSize: CGSize) 
 /// table, whose values the layout has been tuned against.
 /// Also carries the corner blocks (see `iPhoneDuoReservedCorners`) and the fold.
 private func windowReservedArea(hostView: WindowHostView, deviceMetrics: DeviceMetrics, windowSize: CGSize, orientation: UIInterfaceOrientation) -> WindowReservedArea {
+    #if targetEnvironment(macCatalyst)
+    return WindowReservedArea(safeInsets: hostView.systemSafeAreaInsets, reservedCorners: .none, division: nil)
+    #else
     if DeviceMetrics.hasMultipleDisplays {
         // The table's settled insets agree with the table's corners at every posture; the live system
         // insets lag behind rotations and folds. Postures the table does not list keep the live ones.
@@ -152,6 +155,7 @@ private func windowReservedArea(hostView: WindowHostView, deviceMetrics: DeviceM
         return WindowReservedArea(safeInsets: safeInsets, reservedCorners: iPhoneDuoReservedCorners(windowSize: windowSize, orientation: orientation), division: iPhoneDuoDivision(windowSize: windowSize, reported: hostView.activeDivision))
     }
     return WindowReservedArea(safeInsets: deviceSafeInsets(deviceMetrics: deviceMetrics, windowSize: windowSize), reservedCorners: .none, division: nil)
+    #endif
 }
 
 /// Resolves the height reserved for the home indicator. On a multi-display device its presence comes
@@ -184,10 +188,14 @@ private func containedLayoutForWindowLayout(_ layout: WindowLayout, deviceMetric
         updatedInputHeight = inputHeight - inputHeightOffsetForLayout(layout)
     }
     
+    #if targetEnvironment(macCatalyst)
+    let resolvedSafeInsets = layout.reservedArea.safeInsets
+    #else
     var resolvedSafeInsets = layout.reservedArea.safeInsets
     if !DeviceMetrics.hasMultipleDisplays && layout.reservedArea.safeInsets.left.isZero {
         resolvedSafeInsets = deviceSafeInsets(deviceMetrics: deviceMetrics, windowSize: layout.size)
     }
+    #endif
     
     return ContainerViewLayout(size: layout.size, metrics: layout.metrics, deviceMetrics: deviceMetrics, intrinsicInsets: UIEdgeInsets(top: 0.0, left: 0.0, bottom: layout.onScreenNavigationHeight ?? 0.0, right: 0.0), safeInsets: resolvedSafeInsets, reservedCorners: layout.reservedArea.reservedCorners, division: layout.reservedArea.division, additionalInsets: UIEdgeInsets(), statusBarHeight: resolvedStatusBarHeight, inputHeight: updatedInputHeight, inputHeightIsInteractivellyChanging: layout.upperKeyboardInputPositionBound != nil && layout.upperKeyboardInputPositionBound != layout.size.height && layout.inputHeight != nil, inVoiceOver: layout.inVoiceOver, presentedInFormSheet: false)
 }
@@ -281,9 +289,11 @@ public final class WindowHostView {
     /// Multi-display devices only: the fold while the system reports it active, in `eventView`
     /// coordinates. Nil before iOS 27.1.
     fileprivate var activeDivision: CGRect? {
+        #if !targetEnvironment(macCatalyst)
         if #available(iOS 27.1, *) {
             return self.eventView.reservedRegions(kind: .division).first(where: \.isActive)?.frame
         }
+        #endif
         return nil
     }
     
@@ -1050,9 +1060,11 @@ public class Window1 {
     /// are only known once UIKit reports them, after `updateSize`. Folding the update into the pending
     /// layout keeps the transition an in-flight size change already chose.
     private func updateSystemInsets() {
+        #if !targetEnvironment(macCatalyst)
         guard DeviceMetrics.hasMultipleDisplays else {
             return
         }
+        #endif
         // This also runs from the window's own `layoutSubviews`. While a rotation defers the commit,
         // `updateLayout` re-dirties the window for any pending layout, even an unchanged one, and
         // Core Animation re-runs layout inside the same transaction, so the rotation never ends
@@ -1399,6 +1411,9 @@ public class Window1 {
                 let boundsSize = updatingLayout.layout.size
                 let isLandscape = boundsSize.width > boundsSize.height
                 var statusBarHeight: CGFloat?
+                #if targetEnvironment(macCatalyst)
+                statusBarHeight = updatingLayout.layout.reservedArea.safeInsets.top
+                #else
                 if DeviceMetrics.hasMultipleDisplays {
                     statusBarHeight = iPhoneDuoStatusBarHeight(systemHeight: self.statusBarHost != nil ? self.systemStatusBarHeight() : nil, safeInsetTop: updatingLayout.layout.reservedArea.safeInsets.top)
                 } else {
@@ -1410,6 +1425,8 @@ public class Window1 {
                     }
                 }
                 
+                #endif
+
                 if self.deviceMetrics.type == .tablet, let onScreenNavigationHeight = self.hostView.onScreenNavigationHeight, onScreenNavigationHeight != self.deviceMetrics.onScreenNavigationHeight(inLandscape: false, systemOnScreenNavigationHeight: self.hostView.onScreenNavigationHeight) {
                     self.deviceMetrics = DeviceMetrics(screenSize: UIScreen.main.bounds.size, scale: UIScreen.main.scale, statusBarHeight: statusBarHeight ?? 0.0, onScreenNavigationHeight: onScreenNavigationHeight)
                 }

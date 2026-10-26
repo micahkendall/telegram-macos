@@ -6,6 +6,7 @@ import TelegramCore
 import SwiftSignalKit
 import AccountContext
 import SwiftUI
+import Translation
 import TelegramUIPreferences
 
 public func presentTranslateScreen(
@@ -28,7 +29,7 @@ public func presentTranslateScreen(
     var useSystemTranslation = false
     switch translationConfiguration.manual {
     case .system:
-        if #available(iOS 18.0, *) {
+        if #available(iOS 18.0, macCatalyst 26.0, *) {
             useSystemTranslation = true
         }
     default:
@@ -42,7 +43,7 @@ public func presentTranslateScreen(
 }
 
 private func presentSystemTranslateScreen(context: AccountContext, text: String) {
-    if #available(iOS 18.0, *), let rootViewController = context.sharedContext.mainWindow?.viewController?.view.window?.rootViewController {
+    if #available(iOS 18.0, macCatalyst 26.0, *), let rootViewController = context.sharedContext.mainWindow?.viewController?.view.window?.rootViewController {
         var dismissImpl: (() -> Void)?
         let pickerView = TranslateScreenHostingView(text: text, completionHandler: { [weak rootViewController] in
             DispatchQueue.main.async(execute: {
@@ -51,8 +52,12 @@ private func presentSystemTranslateScreen(context: AccountContext, text: String)
             })
         })
         let hostingController = UIHostingController(rootView: pickerView)
+        #if targetEnvironment(macCatalyst)
+        hostingController.modalPresentationStyle = .pageSheet
+        #else
         hostingController.view.isHidden = true
         hostingController.modalPresentationStyle = .overCurrentContext
+        #endif
         rootViewController.present(hostingController, animated: true)
         dismissImpl = { [weak hostingController] in
             Queue.mainQueue().after(0.4, {
@@ -62,6 +67,49 @@ private func presentSystemTranslateScreen(context: AccountContext, text: String)
     }
 }
 
+#if targetEnvironment(macCatalyst)
+@available(macCatalyst 26.0, *)
+struct TranslateScreenHostingView: View {
+    let text: String
+    let handler: () -> Void
+    @State private var result: String?
+    @State private var failure: String?
+    @State private var configuration: TranslationSession.Configuration?
+
+    init(text: String, completionHandler: @escaping () -> Void) {
+        self.text = text
+        self.handler = completionHandler
+        self._configuration = State(initialValue: .init(source: nil, target: Locale.current.language))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20.0) {
+            Text("Translate").font(.title2)
+            ScrollView {
+                Text(text).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
+                Divider().padding(.vertical)
+                if let result {
+                    Text(result).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
+                } else if let failure {
+                    Text(failure).foregroundStyle(.secondary)
+                } else {
+                    ProgressView()
+                }
+            }
+            Button("Done", action: handler).frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .padding(24.0)
+        .frame(minWidth: 420.0, minHeight: 360.0)
+        .translationTask(configuration) { session in
+            do {
+                result = try await session.translate(text).targetText
+            } catch {
+                failure = error.localizedDescription
+            }
+        }
+    }
+}
+#else
 @available(iOS 18.0, *)
 struct TranslateScreenHostingView: View {
     @State var presented = true
@@ -86,3 +134,4 @@ struct TranslateScreenHostingView: View {
             }
     }
 }
+#endif

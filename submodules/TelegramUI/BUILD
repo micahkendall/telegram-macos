@@ -63,9 +63,11 @@ swift_library(
     copts = [
         "-warnings-as-errors",
     ],
-    deps = [
+    deps = select({
+        "//build-system:mac_catalyst": [],
+        "//conditions:default": ["//third-party/recaptcha:RecaptchaEnterprise"],
+    }) + [
         "//submodules/CrashReporting:CrashReporting",
-        "//third-party/recaptcha:RecaptchaEnterprise",
         "//submodules/SSignalKit/SwiftSignalKit:SwiftSignalKit",
         "//submodules/SSignalKit/SSignalKit:SSignalKit",
         "//submodules/AsyncDisplayKit:AsyncDisplayKit",

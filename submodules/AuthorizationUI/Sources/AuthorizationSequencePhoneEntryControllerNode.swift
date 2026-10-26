@@ -318,6 +318,23 @@ final class AuthorizationSequencePhoneEntryControllerNode: ASDisplayNode {
     private let contactSyncNode: ContactSyncNode
     private let proceedNode: SolidRoundedButtonNode
     
+    #if targetEnvironment(macCatalyst)
+    var qrCodeUpdated: ((UIImage?) -> Void)?
+    var qrLoginCompleted: (() -> Void)?
+    var qrLoginError: ((Bool) -> Void)?
+
+    func beginQrLogin() {
+        self.refreshQrToken()
+    }
+
+    func endQrLogin() {
+        self.exportTokenDisposable.set(nil)
+        self.qrCodeUpdated = nil
+        self.qrLoginCompleted = nil
+        self.qrLoginError = nil
+    }
+    #endif
+
     private var qrNode: ASImageNode?
     private let exportTokenDisposable = MetaDisposable()
     private let tokenEventsDisposable = MetaDisposable()
@@ -722,6 +739,15 @@ final class AuthorizationSequencePhoneEntryControllerNode: ASDisplayNode {
     }
     
     private func refreshQrToken() {
+        #if targetEnvironment(macCatalyst)
+        guard self.qrNode != nil || self.qrCodeUpdated != nil else {
+            return
+        }
+        self.qrCodeUpdated?(nil)
+        let syncContacts = false
+        #else
+        let syncContacts = true
+        #endif
         guard let account = self.account else {
             return
         }
@@ -737,7 +763,7 @@ final class AuthorizationSequencePhoneEntryControllerNode: ASDisplayNode {
             let allProductionUserIds = activeProductionUserIds
             let allTestingUserIds = activeTestingUserIds
             
-            return TelegramEngineUnauthorized(account: account).auth.exportAuthTransferToken(accountManager: sharedContext.accountManager, otherAccountUserIds: account.testingEnvironment ? allTestingUserIds : allProductionUserIds, syncContacts: true)
+            return TelegramEngineUnauthorized(account: account).auth.exportAuthTransferToken(accountManager: sharedContext.accountManager, otherAccountUserIds: account.testingEnvironment ? allTestingUserIds : allProductionUserIds, syncContacts: syncContacts)
         }
         
         self.exportTokenDisposable.set((tokenSignal
@@ -748,9 +774,9 @@ final class AuthorizationSequencePhoneEntryControllerNode: ASDisplayNode {
             switch result {
             case let .displayToken(token):
                 var tokenString = token.value.base64EncodedString()
-                //print("export token \(tokenString)")
                 tokenString = tokenString.replacingOccurrences(of: "+", with: "-")
                 tokenString = tokenString.replacingOccurrences(of: "/", with: "_")
+                tokenString = tokenString.replacingOccurrences(of: "=", with: "")
                 let urlString = "tg://login?token=\(tokenString)"
                 let _ = (qrCode(string: urlString, color: .black, backgroundColor: .white, icon: .none)
                 |> deliverOnMainQueue).startStandalone(next: { _, generate in
@@ -761,6 +787,9 @@ final class AuthorizationSequencePhoneEntryControllerNode: ASDisplayNode {
                     let context = generate(TransformImageArguments(corners: ImageCorners(), imageSize: CGSize(width: 200.0, height: 200.0), boundingSize: CGSize(width: 200.0, height: 200.0), intrinsicInsets: UIEdgeInsets()))
                     if let image = context?.generateImage() {
                         strongSelf.qrNode?.image = image
+                        #if targetEnvironment(macCatalyst)
+                        strongSelf.qrCodeUpdated?(image)
+                        #endif
                     }
                 })
                 
@@ -784,7 +813,19 @@ final class AuthorizationSequencePhoneEntryControllerNode: ASDisplayNode {
                 strongSelf.refreshQrToken()
             case .loggedIn, .passwordRequested:
                 strongSelf.exportTokenDisposable.set(nil)
+                #if targetEnvironment(macCatalyst)
+                strongSelf.qrLoginCompleted?()
+                #endif
             }
+        }, error: { [weak self] error in
+            #if targetEnvironment(macCatalyst)
+            switch error {
+            case .limitExceeded:
+                self?.qrLoginError?(true)
+            case .generic:
+                self?.qrLoginError?(false)
+            }
+            #endif
         }))
     }
 }

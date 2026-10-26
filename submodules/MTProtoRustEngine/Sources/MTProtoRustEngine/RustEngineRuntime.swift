@@ -1,5 +1,5 @@
 import Foundation
-#if canImport(AppKit)
+#if os(macOS)
 import AppKit
 #endif
 import SwiftSignalKit
@@ -196,7 +196,7 @@ final class RustEngineRuntime: NSObject, MTNetworkAvailabilityDelegate {
             mt_engine_set_stream_host(engine, &callbacks)
         }
         self.networkAvailability = MTNetworkAvailability(delegate: self)
-        #if canImport(AppKit)
+        #if os(macOS)
         let engine = self.engine
         self.wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: nil, using: { [weak self] _ in
             guard let engine = engine else {

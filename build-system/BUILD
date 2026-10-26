@@ -23,3 +23,9 @@ config_setting(
 exports_files([
     "GenerateStrings/GenerateStrings.py",
 ])
+
+config_setting(
+    name = "mac_catalyst",
+    constraint_values = ["@build_bazel_apple_support//constraints:catalyst"],
+    visibility = ["//visibility:public"],
+)

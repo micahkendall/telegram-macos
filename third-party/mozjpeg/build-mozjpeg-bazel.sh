@@ -7,7 +7,19 @@ ARCH="$1"
 SOURCE_DIR="$2"
 BUILD_DIR=$(echo "$(cd "$(dirname "$3")"; pwd -P)/$(basename "$3")")
 
-if [ "$ARCH" = "arm64" ]; then
+if [ "${TELEGRAM_CATALYST:-0}" = "1" ] && [ "$ARCH" = "arm64" ]; then
+  MACOS_SYSROOT="$(xcrun --sdk macosx --show-sdk-path)"
+  export CFLAGS="-Wall --target=arm64-apple-ios15.0-macabi -funwind-tables"
+  mkdir -p "$BUILD_DIR/build"
+  cd "$BUILD_DIR/build"
+  cmake -G "Unix Makefiles" -DCMAKE_SYSTEM_NAME=Darwin \
+    -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_OSX_ARCHITECTURES=arm64 \
+    -DCMAKE_C_COMPILER="$(xcrun --find clang)" \
+    -DCMAKE_OSX_SYSROOT="$MACOS_SYSROOT" -DPNG_SUPPORTED=FALSE \
+    -DENABLE_SHARED=FALSE -DWITH_JPEG8=1 -DBUILD=10000 \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ../mozjpeg
+  make -j8
+elif [ "$ARCH" = "arm64" ]; then
   IOS_PLATFORMDIR="$(xcode-select -p)/Platforms/iPhoneOS.platform"
   IOS_SYSROOT=($IOS_PLATFORMDIR/Developer/SDKs/iPhoneOS*.sdk)
   export CFLAGS="-Wall -arch arm64 -miphoneos-version-min=13.0 -funwind-tables"

@@ -1,0 +1,11 @@
+--- a/rust/platform/triple_mappings.bzl
++++ b/rust/platform/triple_mappings.bzl
+@@ -508,7 +508,7 @@
+     if target_triple == "aarch64-apple-ios-macabi":
+         return [
+             "@platforms//cpu:aarch64",
+-            "@platforms//os:osx",
++            "@platforms//os:ios",
+             "@apple_support//constraints:catalyst",
+         ]
+     if target_triple == "x86_64-apple-ios-macabi":

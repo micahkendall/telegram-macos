@@ -1,4 +1,5 @@
 #import <MtProtoKit/MTApiEnvironment.h>
+#import <MtProtoKit/MTMacOSClientInfo.h>
 
 #if TARGET_OS_IPHONE
 #   import <UIKit/UIKit.h>
@@ -383,10 +384,16 @@ static NSData *base64_decode(NSString *str) {
         if (deviceModelName != nil) {
             _deviceModel = deviceModelName;
         } else {
+#if TARGET_OS_MACCATALYST
+            _deviceModel = MTMacOSClientDeviceModel();
+#else
             _deviceModel = [self platformString];
+#endif
         }
         _deviceModelName = deviceModelName;
-#if TARGET_OS_IPHONE
+#if TARGET_OS_MACCATALYST
+        _systemVersion = MTMacOSClientSystemVersion();
+#elif TARGET_OS_IPHONE
         _systemVersion = [[UIDevice currentDevice] systemVersion];
 #else
         NSProcessInfo *pInfo = [NSProcessInfo processInfo];
@@ -394,7 +401,7 @@ static NSData *base64_decode(NSString *str) {
 #endif
         
 NSString *suffix = @"";
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
         NSString *value = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"SOURCE"];
         if (value != nil) {
             suffix = [NSString stringWithFormat:@"%@", value];
@@ -406,7 +413,7 @@ NSString *suffix = @"";
         _appVersion = versionString;
         
         _systemLangCode = [[NSLocale preferredLanguages] objectAtIndex:0];
-    #if TARGET_OS_OSX
+    #if TARGET_OS_OSX || TARGET_OS_MACCATALYST
         _langPack = @"macos";
     #else
          _langPack = @"ios";

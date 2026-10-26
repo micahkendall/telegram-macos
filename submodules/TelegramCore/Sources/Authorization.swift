@@ -85,7 +85,7 @@ func storeFutureLoginToken(accountManager: AccountManager<TelegramAccountManager
     let _ = (accountManager.transaction { transaction -> Void in
         var tokens = transaction.getStoredLoginTokens()
         
-        #if DEBUG
+        #if DEBUG && !targetEnvironment(macCatalyst)
         tokens.removeAll()
         #endif
         
@@ -168,7 +168,7 @@ public func sendAuthorizationCode(accountManager: AccountManager<TelegramAccount
             authTokens.removeAll()
         }
         
-#if DEBUG
+#if DEBUG && !targetEnvironment(macCatalyst)
         authTokens.removeAll()
 #endif
         
@@ -176,6 +176,10 @@ public func sendAuthorizationCode(accountManager: AccountManager<TelegramAccount
         flags |= 1 << 5 //allowMissedCall
         flags |= 1 << 6 //tokens
         
+        #if targetEnvironment(macCatalyst)
+        let token: String? = nil
+        let appSandbox: Api.Bool? = nil
+        #else
         var token: String?
         var appSandbox: Api.Bool?
         if let pushNotificationConfiguration = pushNotificationConfiguration {
@@ -184,6 +188,7 @@ public func sendAuthorizationCode(accountManager: AccountManager<TelegramAccount
             token = pushNotificationConfiguration.token
             appSandbox = pushNotificationConfiguration.isSandbox ? .boolTrue : .boolFalse
         }
+        #endif
         
         let sendCode = Api.functions.auth.sendCode(phoneNumber: phoneNumber, apiId: apiId, apiHash: apiHash, settings: .codeSettings(.init(flags: flags, logoutTokens: authTokens.map { Buffer(data: $0) }, token: token, appSandbox: appSandbox)))
         

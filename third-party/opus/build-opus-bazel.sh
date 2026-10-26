@@ -54,6 +54,10 @@ elif [ "${ARCH}" == "sim_arm64" ]; then
   PLATFORM="iphonesimulator"
   EXTRA_CFLAGS="-arch arm64 --target=arm64-apple-ios$MINIOSVERSION-simulator"
   EXTRA_CONFIG="--host=arm-apple-darwin20"
+elif [ "${TELEGRAM_CATALYST:-0}" = "1" ] && [ "${ARCH}" = "arm64" ]; then
+  PLATFORM="macosx"
+  EXTRA_CFLAGS="--target=arm64-apple-ios15.0-macabi"
+  EXTRA_CONFIG="--host=arm-apple-darwin20"
 elif [ "${ARCH}" == "macos_arm64" ]; then
   PLATFORM="macosx"
   EXTRA_CFLAGS="-arch arm64 --target=arm64-apple-macosx14.0"
@@ -68,10 +72,15 @@ SDK_PATH="$(xcrun --sdk $PLATFORM --show-sdk-path 2>/dev/null)"
 
 mkdir -p "${INTERDIR}"
 
+DEPLOYMENT_FLAGS="-miphoneos-version-min=${MINIOSVERSION}"
+if [ "${TELEGRAM_CATALYST:-0}" = "1" ]; then
+  DEPLOYMENT_FLAGS="--target=arm64-apple-ios15.0-macabi -isysroot ${SDK_PATH}"
+fi
+
 ./configure --disable-shared --enable-static --with-pic --disable-extra-programs --disable-doc --disable-asm --enable-intrinsics ${EXTRA_CONFIG} \
   --prefix="${INTERDIR}" \
-  LDFLAGS="$LDFLAGS ${OPT_LDFLAGS} -fPIE -miphoneos-version-min=${MINIOSVERSION} -L${OUTPUTDIR}/lib" \
-  CFLAGS="$CFLAGS ${EXTRA_CFLAGS} ${OPT_CFLAGS} -fPIE -miphoneos-version-min=${MINIOSVERSION} -I${OUTPUTDIR}/include -isysroot ${SDK_PATH}" \
+  LDFLAGS="$LDFLAGS ${OPT_LDFLAGS} -fPIE ${DEPLOYMENT_FLAGS} -L${OUTPUTDIR}/lib" \
+  CFLAGS="$CFLAGS ${EXTRA_CFLAGS} ${OPT_CFLAGS} -fPIE ${DEPLOYMENT_FLAGS} -I${OUTPUTDIR}/include -isysroot ${SDK_PATH}" \
 
 make -j
 make install

@@ -195,7 +195,7 @@ public func translateMessageIds(context: AccountContext, messageIds: [EngineMess
         var enableLocalIfPossible = false
         switch translationConfiguration.auto {
         case .system:
-            if #available(iOS 18.0, *) {
+            if #available(iOS 18.0, macCatalyst 26.0, *) {
                 enableLocalIfPossible = true
             }
         default:

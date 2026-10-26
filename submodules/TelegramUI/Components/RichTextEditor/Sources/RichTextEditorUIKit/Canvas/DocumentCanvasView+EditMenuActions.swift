@@ -33,9 +33,11 @@ extension DocumentCanvasView {
             formatMenu(),
             UIAction(title: editMenuStrings.lookUp) { [weak self] _ in self?.presentLookUp() },
         ]
+        #if !targetEnvironment(macCatalyst)
         if #available(iOS 17.4, *) {
             elements.append(UIAction(title: editMenuStrings.translate) { [weak self] _ in self?.presentTranslate() })
         }
+        #endif
         elements.append(UIAction(title: editMenuStrings.share) { [weak self] _ in self?.presentShare() })
         return elements
     }
@@ -69,6 +71,7 @@ extension DocumentCanvasView {
         vc.present(UIReferenceLibraryViewController(term: term), animated: true)
     }
 
+    #if !targetEnvironment(macCatalyst)
     func presentTranslate() {
         guard #available(iOS 17.4, *) else { return }
         guard let term = selectedPlainText(), let vc = owningViewController() else { return }
@@ -80,6 +83,8 @@ extension DocumentCanvasView {
         hc.modalPresentationStyle = .overCurrentContext
         vc.present(hc, animated: false)
     }
+
+    #endif
 
     func presentShare() {
         guard let term = selectedPlainText(), let vc = owningViewController() else { return }
@@ -96,6 +101,7 @@ extension DocumentCanvasView {
 /// calls `onClose` when the sheet closes so its UIKit hosting controller can be torn down explicitly
 /// (relying on @Environment(\.dismiss) for a UIKit-presented host is not guaranteed). The public
 /// Translate API is SwiftUI-only.
+#if !targetEnvironment(macCatalyst)
 @available(iOS 17.4, *)
 private struct TranslatePresenter: View {
     let text: String
@@ -107,4 +113,5 @@ private struct TranslatePresenter: View {
             .onChange(of: isPresented) { _, shown in if !shown { onClose() } }
     }
 }
+#endif
 #endif

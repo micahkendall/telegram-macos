@@ -52,7 +52,9 @@ API_AVAILABLE(ios(18.4))
 @property(nullable, nonatomic, copy) UITextInputPasswordRules *passwordRules;
 @property(nonatomic) UIWritingToolsBehavior writingToolsBehavior;
 @property(nonatomic) UIWritingToolsResultOptions allowedWritingToolsResultOptions;
+#if !TARGET_OS_MACCATALYST
 @property(nullable, nonatomic, strong) UIConversationContext *conversationContext;
+#endif
 @property(nonatomic) BOOL allowsNumberPadPopover;
 @property(nullable, nonatomic, copy) UIPasteConfiguration *pasteConfiguration;
 @property(nullable, nonatomic, weak) id<UITextPasteDelegate> pasteDelegate;

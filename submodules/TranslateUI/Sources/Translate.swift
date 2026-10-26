@@ -177,7 +177,7 @@ public func canTranslateChats(context: AccountContext) -> Bool {
     var chatTranslationAvailable = true
     switch translationConfiguration.auto {
     case .system:
-        if #available(iOS 18.0, *) {
+        if #available(iOS 18.0, macCatalyst 26.0, *) {
         } else {
             chatTranslationAvailable = false
         }
@@ -200,7 +200,7 @@ public func canTranslateText(context: AccountContext, text: String, showTranslat
     case .enabled, .alternative:
         translateButtonAvailable = true
     case .system:
-        if #available(iOS 18.0, *) {
+        if #available(iOS 18.0, macCatalyst 26.0, *) {
             translateButtonAvailable = true
         }
     default:
@@ -255,7 +255,7 @@ class ExternalTranslationTrigger: ObservableObject {
     @Published var shouldInvalidate: Int = 0
 }
 
-@available(iOS 18.0, *)
+@available(iOS 18.0, macCatalyst 26.0, *)
 private struct TranslationViewImpl: View {
     @State private var configuration: TranslationSession.Configuration?
     @ObservedObject var externalCondition: ExternalTranslationTrigger
@@ -348,7 +348,7 @@ private struct TranslationViewImpl: View {
     }
 }
 
-@available(iOS 18.0, *)
+@available(iOS 18.0, macCatalyst 26.0, *)
 public final class ExperimentalInternalTranslationServiceImpl: ExperimentalInternalTranslationService {
     fileprivate final class TranslationTask {
         let id: Int

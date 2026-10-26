@@ -1,3 +1,6 @@
+#if TARGET_OS_MACCATALYST
+#import <MacOpenGL/MacOpenGL.h>
+#endif
 #import "GPUImageTextureInput.h"
 
 #pragma clang diagnostic push
@@ -66,8 +69,16 @@
         
         CIImage *updatedCIImage = [ciImage imageByApplyingTransform:CGAffineTransformConcat(CGAffineTransformMakeScale(1.0f, -1.0f), CGAffineTransformMakeTranslation(0.0f, ciImage.extent.size.height))];
         
+#if TARGET_OS_MACCATALYST
+        ciContext = [CIContext contextWithOptions:@{kCIContextWorkingColorSpace: [NSNull null]}];
+#else
         ciContext = [CIContext contextWithEAGLContext:context options:@{kCIContextWorkingColorSpace: [NSNull null]}];
+#endif
+#if TARGET_OS_MACCATALYST
+        TGMacGLUploadCIImage(ciContext, updatedCIImage, outputTexture);
+#else
         [ciContext drawImage:updatedCIImage inRect:updatedCIImage.extent fromRect:updatedCIImage.extent];
+#endif
         
         [GPUImageContext useImageProcessingContext];
         outputFramebuffer = [[GPUImageFramebuffer alloc] initWithSize:ciImage.extent.size overridenFramebuffer:defaultFramebuffer overriddenTexture:outputTexture];
@@ -111,7 +122,11 @@
 
         CIImage *updatedCIImage = [ciImage imageByApplyingTransform:CGAffineTransformConcat(CGAffineTransformMakeScale(1.0f, -1.0f), CGAffineTransformMakeTranslation(0.0f, ciImage.extent.size.height))];
 
+#if TARGET_OS_MACCATALYST
+        TGMacGLUploadCIImage(ciContext, updatedCIImage, outputTexture);
+#else
         [ciContext drawImage:updatedCIImage inRect:updatedCIImage.extent fromRect:updatedCIImage.extent];
+#endif
     });
 }
 

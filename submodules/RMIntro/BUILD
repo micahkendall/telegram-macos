@@ -26,13 +26,18 @@ objc_library(
         "-Werror",
         "-I{}/PublicHeaders/RMIntro".format(package_name()),
     ],
-    deps = [
+    deps = select({
+        "//build-system:mac_catalyst": ["//build-system/macos/graphics:MacOpenGL"],
+        "//conditions:default": [],
+    }) + [
         "//submodules/LegacyComponents:LegacyComponents",
     ],
-    sdk_frameworks = [
+    sdk_frameworks = select({
+        "//build-system:mac_catalyst": [],
+        "//conditions:default": ["GLKit"],
+    }) + [
         "Foundation",
         "UIKit",
-        "GLKit",
     ],
     visibility = [
         "//visibility:public",
