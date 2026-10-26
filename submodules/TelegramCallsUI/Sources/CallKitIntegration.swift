@@ -11,12 +11,17 @@ import TelegramAudio
 import TelegramVoip
 
 private let sharedProviderDelegate: CallKitProviderDelegate? = {
+    guard CallKitIntegration.isAvailable else {
+        return nil
+    }
     return CallKitProviderDelegate()
 }()
 
 public final class CallKitIntegration {
     public static var isAvailable: Bool {
-        #if targetEnvironment(simulator)
+        #if targetEnvironment(simulator) || targetEnvironment(macCatalyst)
+        // The standalone Catalyst app has no system calling entitlement. Use
+        // Telegram's in-app call and audio-session path instead of CX transactions.
         return false
         #else
         if #available(iOSApplicationExtension 10.0, iOS 10.0, *) {
@@ -185,7 +190,11 @@ class CallKitProviderDelegate: NSObject, CXProviderDelegate {
                 let nsError = error as NSError
                 Logger.shared.log("CallKitIntegration", "error in requestTransaction \(transaction): \(nsError.domain) \(nsError.code) \(error)")
             }
-            completion?(error)
+            // CXCallController invokes this on its private completion queue.
+            // Call state and any failure alert must be updated on the main queue.
+            DispatchQueue.main.async {
+                completion?(error)
+            }
         }
     }
     

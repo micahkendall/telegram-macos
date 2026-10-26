@@ -84,6 +84,8 @@ identity with an installed official Telegram app.
 
 ## Platform changes
 
+- Voice and video calls use Telegram's in-app call UI and audio-session handling.
+  System CallKit integration is disabled for this standalone Catalyst build.
 - The standalone app stores its data in Application Support, under its own group
   identifier. Passcode keychain items use a bundle-specific service name. The
   build does not require a signed iOS app-group entitlement.
