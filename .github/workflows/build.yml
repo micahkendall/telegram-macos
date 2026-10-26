@@ -1,109 +1,140 @@
-name: CI
+name: Build and release Telegram for Apple silicon
 
 on:
   push:
-    branches: [ master ]
-
+    branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telegram-macos-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
-    runs-on: macos-13
-
+    name: Build native arm64 Mac Catalyst app
+    runs-on: xcode-27
+    timeout-minutes: 180
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: '1'
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          submodules: 'recursive'
-          fetch-depth: '0'
+          submodules: recursive
+          persist-credentials: false
 
-      - name: Set active Xcode path
+      - name: Select pinned Xcode and prepare disk
+        shell: bash
         run: |
-          XCODE_VERSION=$(cat versions.json | python3 -c 'import json,sys;obj=json.load(sys.stdin);print(obj["xcode"]);')
-          sudo xcode-select -s /Applications/Xcode_$XCODE_VERSION.app/Contents/Developer
+          set -euo pipefail
+          test "$(uname -m)" = arm64
+          XCODE_VERSION=$(python3 -c 'import json; print(json.load(open("versions.json"))["xcode"])')
+          sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app/Contents/Developer"
+          xcodebuild -version
+          # This is a disposable hosted runner. No simulator runtime is used by this build.
+          sudo rm -rf /Library/Developer/CoreSimulator/Images /Library/Developer/CoreSimulator/Caches
+          python3 - <<'PY'
+          import pathlib, shutil, subprocess
+          selected = pathlib.Path(subprocess.check_output(['xcode-select', '-p'], text=True).strip()).parents[1].resolve()
+          for app in pathlib.Path('/Applications').glob('Xcode*.app'):
+              if app.resolve() != selected and not app.is_symlink():
+                  subprocess.run(['sudo', 'rm', '-rf', str(app)], check=True)
+          PY
+          df -h /
+          xcodebuild -downloadComponent MetalToolchain
 
-      - name: Create canonical source directory
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build utilities
         run: |
-          set -x
-          sudo mkdir -p /Users/Shared
-          cp -R $GITHUB_WORKSPACE /Users/Shared/
-          mv /Users/Shared/$(basename $GITHUB_WORKSPACE) /Users/Shared/telegram-ios
+          brew install cmake ninja pkg-config nasm yasm
 
-      - name: Build the App
+      - name: Build Telegram.app with the configured native Mac API profile
+        shell: bash
         run: |
-          set -x
+          set -euo pipefail
+          mkdir -p dist
+          python3 -u build-system/macos/build.py \
+            --native-mac-identity \
+            --bazel-user-root "$RUNNER_TEMP/telegram-bazel" \
+            --jobs 3 \
+            --output "$RUNNER_TEMP/Telegram.app" 2>&1 | tee dist/build.log
 
-          # source code paths are included in the final binary, so we need to make them stable across builds
-          SOURCE_DIR=/Users/Shared/telegram-ios
+      - name: Verify native protocol profile
+        run: |
+          python3 build-system/macos/test_protocol.py --app "$RUNNER_TEMP/Telegram.app"
 
-          # use canonical bazel root
-          BAZEL_USER_ROOT="/private/var/tmp/_bazel_containerhost"
+      - name: Verify and archive the app bundle
+        run: |
+          python3 build-system/macos/release.py --app "$RUNNER_TEMP/Telegram.app" --output dist
 
-          cd $SOURCE_DIR
-
-          BUILD_NUMBER_OFFSET="$(cat build_number_offset)"
-
-          export APP_VERSION=$(cat versions.json | python3 -c 'import json,sys;obj=json.load(sys.stdin);print(obj["app"]);')
-          export COMMIT_COUNT=$(git rev-list --count HEAD)
-          export COMMIT_COUNT="$(($COMMIT_COUNT+$BUILD_NUMBER_OFFSET))"
-          export BUILD_NUMBER="$COMMIT_COUNT"
-          echo "BUILD_NUMBER=$(echo $BUILD_NUMBER)" >> $GITHUB_ENV
-          echo "APP_VERSION=$(echo $APP_VERSION)" >> $GITHUB_ENV
-
-          python3 build-system/Make/ImportCertificates.py --path build-system/fake-codesigning/certs
-          python3 -u build-system/Make/Make.py \
-            --bazelUserRoot="$BAZEL_USER_ROOT" \
-            build \
-            --configurationPath="build-system/appstore-configuration.json" \
-            --codesigningInformationPath=build-system/fake-codesigning \
-            --configuration=release_arm64 \
-            --buildNumber="$BUILD_NUMBER"
-
-          # collect ipa
-          OUTPUT_PATH="build/artifacts"
-          rm -rf "$OUTPUT_PATH"
-          mkdir -p "$OUTPUT_PATH"
-          for f in bazel-out/applebin_ios-ios_arm*-opt-ST-*/bin/Telegram/Telegram.ipa; do
-            cp "$f" $OUTPUT_PATH/
-          done
-
-          # collect dsym
-          mkdir -p build/DSYMs
-          for f in bazel-out/applebin_ios-ios_arm*-opt-ST-*/bin/Telegram/*.dSYM; do
-            cp -R "$f" build/DSYMs/
-          done
-          zip -r "./$OUTPUT_PATH/Telegram.DSYMs.zip" build/DSYMs 1>/dev/null
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload downloadable app
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          tag_name: build-${{ env.BUILD_NUMBER }}
-          release_name: Telegram ${{ env.APP_VERSION }} (${{ env.BUILD_NUMBER }})
-          body: |
-            An unsigned build of Telegram for iOS ${{ env.APP_VERSION }} (${{ env.BUILD_NUMBER }})
-          draft: false
-          prerelease: false
+          name: Telegram-macos-arm64
+          path: |
+            dist/Telegram-macos-arm64.zip
+            dist/SHA256SUMS.txt
+            dist/INSTALL.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
 
-      - name: Upload Release IPA
-        id: upload-release-ipa 
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: /Users/Shared/telegram-ios/build/artifacts/Telegram.ipa
-          asset_name: Telegram.ipa
-          asset_content_type: application/zip
+          name: macos-build-log
+          path: dist/build.log
+          retention-days: 7
+          if-no-files-found: ignore
 
-      - name: Upload Release DSYM
-        id: upload-release-dsym 
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: /Users/Shared/telegram-ios/build/artifacts/Telegram.DSYMs.zip
-          asset_name: Telegram.DSYMs.zip
-          asset_content_type: application/zip
+          name: Telegram-macos-arm64
+          path: dist
+
+      - name: Publish verified app bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_COMMIT: ${{ github.sha }}
+          RELEASE_RUN: ${{ github.run_number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="macos-${RELEASE_RUN}-${RELEASE_COMMIT:0:7}"
+          cat > release-notes.md <<'NOTES'
+          Native Apple silicon Mac Catalyst build of this Telegram-iOS fork. No simulator required.
+
+          Download **Telegram-macos-arm64.zip**, extract **Telegram.app**, and drag it into **Applications**. Requires an Apple silicon Mac running macOS 15 or later.
+
+          This build uses the pinned native Swift Telegram for macOS API identity and connection profile, matching this fork's local configuration. Account data and local configuration files are not included.
+
+          The app is **ad hoc signed**, not Developer ID signed or notarized. On first launch, macOS may require **System Settings → Privacy & Security → Open Anyway** after attempting to open the app. This is a community build, not an official Telegram release.
+
+          Checksums and installation instructions are attached. The full app/framework signatures, arm64 architecture, Catalyst platform, and packaged API profile are verified before publication.
+          NOTES
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/Telegram-macos-arm64.zip dist/SHA256SUMS.txt dist/INSTALL.txt --clobber
+          else
+            gh release create "$TAG" --target "$RELEASE_COMMIT" \
+              --title "Telegram for Apple silicon · build ${RELEASE_RUN}" \
+              --notes-file release-notes.md --latest \
+              dist/Telegram-macos-arm64.zip dist/SHA256SUMS.txt dist/INSTALL.txt
+          fi
+          echo "Release: https://github.com/$GH_REPO/releases/tag/$TAG" >> "$GITHUB_STEP_SUMMARY"

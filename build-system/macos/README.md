@@ -137,3 +137,26 @@ in memory and are destroyed with the probe; it does not load an account, request
 a phone login code, send a message, or persist authentication material. Passing
 this probe establishes anonymous RPC and PFS interoperability, not authenticated
 login, messaging, media parity, or server-side indistinguishability.
+
+## GitHub Actions releases
+
+The `Build and release Telegram for Apple silicon` workflow builds every push to
+`main`, pull request to `main`, and manual dispatch. It uses GitHub's `xcode-27`
+Apple silicon runner, selects the Xcode version in `versions.json`, and builds the
+full Mac Catalyst target with `--native-mac-identity`. No API secrets need to be
+configured: the pinned public native Mac profile is checked into this repository.
+This is the Swift Mac client's API ID 9, not the separate cross-platform Desktop
+client's API identity.
+
+Successful builds on `main` automatically publish a GitHub Release with
+`Telegram-macos-arm64.zip` containing `Telegram.app`, SHA-256 checksums, and install
+instructions. Pull requests publish workflow artifacts only. Release tags include
+the workflow run number and commit, so each build can be traced to its source.
+Re-running the same build replaces its release assets rather than creating another
+tag. Failed builds retain their build log and never publish a release.
+
+The workflow validates the packaged API profile, deep code signatures, arm64
+architecture and Catalyst platform of the executable and embedded frameworks.
+Downloads are ad hoc signed, matching the local build. There is no Developer ID
+certificate or notarization credential configured; macOS may require Privacy &
+Security > Open Anyway on first launch. Downloaded apps do not require Xcode.
